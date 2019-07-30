@@ -26,7 +26,7 @@ using System.Resources;
 namespace Important
 {
     /// <summary>
-    /// Logique d'interaction pour MainWindow.xaml
+    /// Interaction Logic for MainWindow.xaml
     /// </summary>
     public partial class MainWindow : Window
     {
@@ -37,7 +37,6 @@ namespace Important
         private const int GENERAL_MEDIA_OFFSET = 50;
         private const int FIRST_ROW_HEIGHT = 20 + 12;
         private const int FIRST_COLUMN_WIDTH = MEDIA_WIDTH + 12;
-        private const int DEFAULT_TITLE_PLACE_WIDTH = 1280;
         private const int DpiX = 96;
         private DispatcherTimer time = new DispatcherTimer();
         private int fontSize = 20;
@@ -48,7 +47,7 @@ namespace Important
         string title = "Video Library";
 
         /// <summary>
-        /// Constructeur de la classe
+        /// Constructor
         /// </summary>
         public MainWindow()
         {
@@ -57,7 +56,147 @@ namespace Important
             time.Tick += new EventHandler(Main);
             time.Interval = new TimeSpan(1);
         }
+        #region App Initialization
+        private void OnApplicationLayoutGridLoaded(object sender, RoutedEventArgs e)
+        {
+            InitializeApplication();
+        }
 
+        private void InitializeApplication()
+        {
+            CreateTable();
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Assembly.GetEntryAssembly().Location) + "\\Media");
+            title = System.IO.Path.GetFileName(Assembly.GetEntryAssembly().Location).Substring(0, System.IO.Path.GetFileName(Assembly.GetEntryAssembly().Location).Length - 4);
+            (Title as Label).Content = title;
+            title = "Demomaker's Video Library - " + title;
+            window.SetValue(TitleProperty, title);
+            CreateNonMedias();
+            deleteCol.MinWidth = MEDIA_HEIGHT + 4;
+            deleteCol.MaxWidth = MEDIA_HEIGHT + 4;
+            List<int> MediaIDs = new List<int>();
+            string sql = "SELECT id_media from medias";
+            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
+            using (var data = command.ExecuteReader())
+            {
+                while (data.Read())
+                {
+                    MediaIDs.Add(Int32.Parse(data.GetValue(0).ToString()));
+                }
+                data.Close();
+            }
+            foreach (int mediaID in MediaIDs)
+            {
+                sql = "SELECT filelocation from medias WHERE id_media = '" + mediaID + "'";
+                command = new SQLiteCommand(sql, m_dbConnection);
+                var data = command.ExecuteReader();
+                string filelocation = data.GetValue(0).ToString();
+
+                sql = "SELECT filename from medias WHERE id_media = '" + mediaID + "'";
+                command = new SQLiteCommand(sql, m_dbConnection);
+                data = command.ExecuteReader();
+                string filename = data.GetValue(0).ToString();
+
+                if (File.Exists(filelocation))
+                {
+                    GeneralVideoMedia generalVideoMedia = CreateMedia(filelocation);
+                    generalVideoMedia.Filename = filename;
+                    generalVideoMedia.MediaId = mediaID;
+
+                    LoadInterfaceChanges(generalVideoMedia.MediaId, generalVideoMedia, filelocation);
+                }
+                else
+                {
+                    sql = "DELETE FROM medias WHERE filelocation = '" + filelocation + "'";
+                    command = new SQLiteCommand(sql, m_dbConnection);
+                    data = command.ExecuteReader();
+
+                    if (File.Exists(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length - 4) + ".png"))
+                    {
+                        File.Delete(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length - 4) + ".png");
+                    }
+                }
+            }
+            CreateGridTopParts();
+
+            MediaIDs.Clear();
+        }
+
+        private void CreateTable()
+        {
+            m_dbConnection.Open();
+            string sqlcreate = "create table if not exists medias (id_media INTEGER PRIMARY KEY, filename varchar(5000), img_path varchar(5000), title varchar(5000), description varchar(5000), filelocation varchar(5000));";
+            SQLiteCommand commandcreate = new SQLiteCommand(sqlcreate, m_dbConnection);
+            commandcreate.ExecuteNonQuery();
+        }
+
+
+        /// <summary>
+        /// Window Running Instance
+        /// </summary>
+        /// <param name="sender">Object that starts the instance</param>
+        /// <param name="e">Event argument</param>
+        private void Main(object sender, EventArgs e)
+        {
+            //Pour chaque MediaElement qui n'est pas nulle, changer son état de jouage dépendamment si on l'active ou non.
+            for (int count = 0; count < GeneralVideoMedias.Count; count++)
+            {
+                if (GeneralVideoMedias[count] != null && GeneralVideoMedias[count].MediaElement != null)
+                {
+                    if (GeneralVideoMedias[count].play == true)
+                    {
+                        GeneralVideoMedias[count].MediaElement.Play();
+                    }
+                    else
+                    {
+                        GeneralVideoMedias[count].MediaElement.Pause();
+                    }
+                }
+            }
+        }
+
+
+
+        private void CreateNonMedias()
+        {
+            listDetailsWidth = (double)window.Width / 2;
+            topCol.MinWidth = 40;
+            topCol.MaxWidth = 40;
+            colOfVids.MinWidth = FIRST_COLUMN_WIDTH;
+            colOfVids.MaxWidth = FIRST_COLUMN_WIDTH;
+            titleCol.MinWidth = window.Width / 2;
+            titleCol.MaxWidth = window.Width / 2;
+            topRow.MinHeight = FIRST_ROW_HEIGHT;
+            topRow.MaxHeight = FIRST_ROW_HEIGHT;
+            ColumnDefinition columnDefinition = new ColumnDefinition();
+            columnDefinition.Width = new GridLength(1, GridUnitType.Star);
+            grid.ColumnDefinitions.Add(columnDefinition);
+            ResetTables();
+        }
+
+        private void CreateGridTopParts()
+        {
+            Grid.SetRow(Title, 0);
+            searchBox.VerticalAlignment = VerticalAlignment.Center;
+            searchBox.HorizontalAlignment = HorizontalAlignment.Left;
+            searchBoxHint.VerticalAlignment = VerticalAlignment.Center;
+            searchBoxHint.HorizontalAlignment = HorizontalAlignment.Left;
+            searchButton.Width = 40;
+            searchButton.Height = 34;
+            searchButton.Margin = new Thickness(searchBox.Width, 0, 0, 0);
+
+            Grid.SetRow(searchBox, 0);
+            Grid.SetRow(searchBoxHint, 0);
+            Grid.SetRow(searchButton, 0);
+            Grid.SetRow(upload, 0);
+            Grid.SetColumn(Title, 1);
+            Grid.SetColumn(searchBox, 2);
+            Grid.SetColumn(searchBoxHint, 2);
+            Grid.SetColumn(searchButton, 2);
+            Grid.SetColumn(upload, 3);
+        }
+        #endregion
+        #region Controls
+        #region Scrolling
         public void OnScroll(object sender, MouseWheelEventArgs e)
         {
             if (e.Delta > 0)
@@ -145,45 +284,21 @@ namespace Important
                 lastRowMedia.ScrollPositionChange += -(grid.RowDefinitions.Count() - 2);
             }
         }
-
-        private bool VideoPlaying()
+        #endregion
+        #region Enter
+        private void EnterPress(object sender, KeyEventArgs e)
         {
-            for (int i = 0; i < GeneralVideoMedias.Count; i++)
+            if (e.Key == Key.Enter)
             {
-                if (GeneralVideoMedias[i].videoDisplayed == true)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// Instance Running de la fenêtre
-        /// </summary>
-        /// <param name="sender">Objet qui démarre le running</param>
-        /// <param name="e">Argument d'événement</param>
-        private void Main(object sender, EventArgs e)
-        {
-            //Pour chaque MediaElement qui n'est pas nulle, changer son état de jouage dépendamment si on l'active ou non.
-            for (int count = 0; count < GeneralVideoMedias.Count; count++)
-            {
-                if (GeneralVideoMedias[count] != null && GeneralVideoMedias[count].MediaElement != null)
-                {
-                    if (GeneralVideoMedias[count].play == true)
-                    {
-                        GeneralVideoMedias[count].MediaElement.Play();
-                    }
-                    else
-                    {
-                        GeneralVideoMedias[count].MediaElement.Pause();
-                    }
-                }
+                TextBoxDoubleClicked(sender, e);
             }
         }
+        #endregion
+        #endregion
+        #region Interface Actions
 
         /// <summary>
-        /// Lorsqu'on upload un fichier à garder dans l'application
+        /// When we upload a media
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -211,58 +326,7 @@ namespace Important
             }
         }
 
-        private bool FileIsAlreadyInDatabase(string filelocation)
-        {
-            int numOfSameFiles = 0;
-            string sql = "SELECT COUNT(*) from medias WHERE filelocation = '" + filelocation + "' ";
-            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
-            using (var data = command.ExecuteReader())
-            {
-                while (data.Read())
-                {
-                    numOfSameFiles = Int32.Parse(data.GetValue(0).ToString());
-                }
-                data.Close();
-            }
-            return numOfSameFiles > 0;
-        }
 
-        private GeneralVideoMedia GetGeneralVideoMediaWithRowId(int rowID)
-        {
-            foreach (GeneralVideoMedia generalVideoMedia in GeneralVideoMedias)
-            {
-                if (generalVideoMedia.InterfaceRowId == rowID)
-                {
-                    return generalVideoMedia;
-                }
-            }
-            return null;
-        }
-
-        private GeneralVideoMedia GetGeneralVideoMediaWithScrollViewID(int scrollviewID)
-        {
-            foreach (GeneralVideoMedia generalVideoMedia in GeneralVideoMedias)
-            {
-                if (generalVideoMedia.InterfaceRowId + generalVideoMedia.ScrollPositionChange == scrollviewID)
-                {
-                    return generalVideoMedia;
-                }
-            }
-            return null;
-        }
-
-        private void LoadNewMedia(string fileName, string fileLocation)
-        {
-            System.IO.DirectoryInfo medias = new System.IO.DirectoryInfo(System.IO.Path.GetFullPath("Media"));
-
-            AddMediaToTable(fileName, fileName.Substring(0,fileName.Length - 4) + ".png", fileLocation);
-
-            GeneralVideoMedia generalVideoMedia = CreateMedia(fileLocation);
-            generalVideoMedia.Filename = fileName.Substring(0, fileName.Length - 4);
-            generalVideoMedia.MediaId = GetMostRecentlyInsertedMediaID();
-
-            LoadInterfaceChanges(generalVideoMedia.MediaId, generalVideoMedia, fileLocation);
-        }
 
         private void LoadInterfaceChanges(int mediaID, GeneralVideoMedia generalVideoMedia, string filelocation)
         {
@@ -270,7 +334,7 @@ namespace Important
             int mediaId = generalVideoMedia.MediaId;
             ChangeMediaPlayProperties(generalVideoMedia.MediaElement, generalVideoMedia);
             generalVideoMedia.FileLocation = CreateFileLocationLabel(filelocation);
-            generalVideoMedia.Title = CreateTitleLabel(filename,mediaId);
+            generalVideoMedia.Title = CreateTitleLabel(filename, mediaId);
             generalVideoMedia.TitleTextBox = CreateTitleTextBox(filename, mediaId);
             generalVideoMedia.Description = CreateDescriptionLabel(filename, mediaId);
             generalVideoMedia.DescriptionTextBox = CreateDescriptionTextBox(filename, mediaId);
@@ -286,11 +350,374 @@ namespace Important
 
         }
 
+        private void OnMediaElementDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount >= 2)
+            {
+                if (!videoInFullScreen)
+                {
+                    RowDefinition rowDefinition = new RowDefinition();
+                    rowDefinition.Height = new GridLength(1, GridUnitType.Star);
+                    (sender as MediaElement).Margin = new Thickness(0, -4, -12, 0);
+                    grid.RowDefinitions.Add(rowDefinition);
+                    this.WindowStyle = WindowStyle.None;
+                    this.WindowState = WindowState.Maximized;
+                    Grid.SetRow((sender as MediaElement), 0);
+                    Grid.SetColumn((sender as MediaElement), 0);
+                    Grid.SetColumnSpan((sender as MediaElement), 10);
+                    Grid.SetRowSpan((sender as MediaElement), 10);
+                    (sender as MediaElement).Width = Window.GetWindow(this).Width;
+                    (sender as MediaElement).Height = Window.GetWindow(this).Height;
+                }
+                else
+                {
+                    Grid.SetRow((sender as MediaElement), 2);
+                    Grid.SetColumn((sender as MediaElement), 2);
+                    Grid.SetColumnSpan((sender as MediaElement), 1);
+                    Grid.SetRowSpan((sender as MediaElement), 1);
+                    (sender as MediaElement).Width = 1280;
+                    (sender as MediaElement).Height = 720;
+                    this.WindowStyle = WindowStyle.SingleBorderWindow;
+                    this.WindowState = WindowState.Normal;
+
+                }
+                videoInFullScreen = !videoInFullScreen;
+            }
+        }
+
+        private void LabelClicked(object sender, RoutedEventArgs e)
+        {
+            if (sender is Label)
+            {
+                for (int count = 0; count < GeneralVideoMedias.Count; count++)
+                {
+                    if (GeneralVideoMedias[count].Title == sender as Label)
+                    {
+                        ReplaceLabelWithTextBox(GeneralVideoMedias[count].Title, GeneralVideoMedias[count].TitleTextBox);
+                    }
+                    else if (GeneralVideoMedias[count].Description == sender as Label)
+                    {
+                        ReplaceLabelWithTextBox(GeneralVideoMedias[count].Description, GeneralVideoMedias[count].DescriptionTextBox);
+                    }
+                    else if (GeneralVideoMedias[count].VideoWidth == sender as Label)
+                    {
+                        ReplaceLabelWithTextBox(GeneralVideoMedias[count].VideoWidth, GeneralVideoMedias[count].VideoWidthTextBox);
+                    }
+                    else if (GeneralVideoMedias[count].VideoHeight == sender as Label)
+                    {
+                        ReplaceLabelWithTextBox(GeneralVideoMedias[count].VideoHeight, GeneralVideoMedias[count].VideoHeightTextBox);
+                    }
+                }
+            }
+        }
+
+        private void TextBoxDoubleClicked(object sender, RoutedEventArgs e)
+        {
+            if (sender is TextBox)
+            {
+                if ((sender as TextBox).Visibility != Visibility.Hidden)
+                {
+                    for (int count = 0; count < GeneralVideoMedias.Count; count++)
+                    {
+                        if (GeneralVideoMedias[count].TitleTextBox == sender as TextBox)
+                        {
+                            ReplaceTextBoxWithLabel(GeneralVideoMedias[count].TitleTextBox, GeneralVideoMedias[count].Title);
+                            UpdateTitleOfSpecificMedia(GeneralVideoMedias[count].MediaId, (sender as TextBox).Text);
+                            GeneralVideoMedias[count].Title.Content = GetTitleOfMedia(GeneralVideoMedias[count].MediaId);
+                        }
+                        else if (GeneralVideoMedias[count].DescriptionTextBox == sender as TextBox)
+                        {
+                            ReplaceTextBoxWithLabel(GeneralVideoMedias[count].DescriptionTextBox, GeneralVideoMedias[count].Description);
+                            UpdateDescripitionOfSpecificMedia(GeneralVideoMedias[count].MediaId, (sender as TextBox).Text);
+                            GeneralVideoMedias[count].Description.Content = GetDescriptionOfMedia(GeneralVideoMedias[count].MediaId);
+                        }
+                        else if (GeneralVideoMedias[count].VideoWidthTextBox == sender as TextBox)
+                        {
+                            ReplaceTextBoxWithLabel(GeneralVideoMedias[count].VideoWidthTextBox, GeneralVideoMedias[count].VideoWidth);
+                            GeneralVideoMedias[count].VideoWidth.Content = (sender as TextBox).Text;
+                            double testDouble;
+                            if (Double.TryParse((sender as TextBox).Text, out testDouble) == true)
+                            {
+                                grid.ColumnDefinitions[2].MinWidth = Double.Parse((sender as TextBox).Text);
+                                grid.ColumnDefinitions[2].MaxWidth = Double.Parse((sender as TextBox).Text);
+                                window.Width = Double.Parse((sender as TextBox).Text) + FIRST_COLUMN_WIDTH + GENERAL_MEDIA_OFFSET;
+                                GeneralVideoMedias[count].SetVideoWidth(Double.Parse((sender as TextBox).Text));
+                            }
+                        }
+                        else if (GeneralVideoMedias[count].VideoHeightTextBox == sender as TextBox)
+                        {
+                            ReplaceTextBoxWithLabel(GeneralVideoMedias[count].VideoHeightTextBox, GeneralVideoMedias[count].VideoHeight);
+                            GeneralVideoMedias[count].VideoHeight.Content = (sender as TextBox).Text;
+                            double testDouble;
+                            if (Double.TryParse((sender as TextBox).Text, out testDouble) == true)
+                            {
+                                grid.RowDefinitions[2].MinHeight = Double.Parse((sender as TextBox).Text);
+                                grid.RowDefinitions[2].MaxHeight = Double.Parse((sender as TextBox).Text);
+                                window.Height = Double.Parse((sender as TextBox).Text) + (FIRST_ROW_HEIGHT) + 100 + GENERAL_MEDIA_OFFSET + MEDIA_HEIGHT;
+                                GeneralVideoMedias[count].SetVideoHeight(Double.Parse((sender as TextBox).Text));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+
+        private void OnSearch(object sender, RoutedEventArgs e)
+        {
+            List<GeneralVideoMedia> foundGeneralVideoMedias = GetVideosSimilarToSearchTermIntoStringArray();
+            ResetVideoDisplayUsing(foundGeneralVideoMedias);
+        }
+
+
+        private void TitleClicked(object sender, MouseButtonEventArgs e)
+        {
+            ResetVideoDisplayUsing(GeneralVideoMedias);
+        }
+        #endregion
+        #region GeneralVideoMedia Creation
+        private void LoadNewMedia(string fileName, string fileLocation)
+        {
+            System.IO.DirectoryInfo medias = new System.IO.DirectoryInfo(System.IO.Path.GetFullPath("Media"));
+
+            AddMediaToTable(fileName, fileName.Substring(0, fileName.Length - 4) + ".png", fileLocation);
+
+            GeneralVideoMedia generalVideoMedia = CreateMedia(fileLocation);
+            generalVideoMedia.Filename = fileName.Substring(0, fileName.Length - 4);
+            generalVideoMedia.MediaId = GetMostRecentlyInsertedMediaID();
+
+            LoadInterfaceChanges(generalVideoMedia.MediaId, generalVideoMedia, fileLocation);
+        }
+        private GeneralVideoMedia CreateMedia(string filelocation)
+        {
+            GeneralVideoMedia generalVideoMedia = new GeneralVideoMedia();
+            generalVideoMedia.play = false;
+            generalVideoMedia.MediaElement = new MediaElement();
+            generalVideoMedia.MediaElement.Name = "mediaElement";
+            generalVideoMedia.MediaElement.Source = new Uri(filelocation, UriKind.Relative);
+            generalVideoMedia.MediaElement.Margin = new Thickness(0, 0, 0, 0);
+            generalVideoMedia.MediaElement.UnloadedBehavior = MediaState.Close;
+            generalVideoMedia.MediaElement.RenderTransformOrigin = new Point(0.251, 0.47);
+            generalVideoMedia.MediaElement.Stretch = Stretch.Uniform;
+            generalVideoMedia.MediaElement.StretchDirection = StretchDirection.Both;
+            generalVideoMedia.MediaElement.RenderSize = new Size(MEDIA_WIDTH, MEDIA_HEIGHT);
+            generalVideoMedia.MediaElement.MouseDown += OnMediaElementDoubleClick;
+
+            RowDefinition row = new RowDefinition();
+            row.MaxHeight = MEDIA_HEIGHT + 24;
+            row.MinHeight = MEDIA_HEIGHT + 24;
+            grid.RowDefinitions.Add(row);
+
+            generalVideoMedia.InterfaceRowId = (grid.RowDefinitions.IndexOf(row) - 1);
+
+            return generalVideoMedia;
+        }
+
+
+        private Image CreateImage(MediaElement mediaElement, string filename)
+        {
+            if (!File.Exists(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length - 4) + ".png"))
+                WriteToPng(mediaElement, filename.Substring(0, filename.Length - 4) + ".png");
+
+            //Console.WriteLine("Image Resource Exists? : " + ResourceExists(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length - 4) + ".png"));
+            BitmapImage bitmap = new BitmapImage(new Uri(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length - 4) + ".png", UriKind.Absolute));
+
+
+            Image image = new Image();
+            image.Source = bitmap;
+            image.Width = MEDIA_WIDTH;
+            image.Height = MEDIA_HEIGHT;
+            image.RenderTransformOrigin = new Point(0.251, 0.47);
+            image.Stretch = Stretch.Uniform;
+            image.StretchDirection = StretchDirection.Both;
+            image.Margin = new Thickness(12, 12, 0, 0);
+            image.Visibility = Visibility.Visible;
+            image.MouseDown += PlayVideo;
+
+            return image;
+        }
+
+
         private Button CreateDeleteButton(GeneralVideoMedia generalVideoMedia)
         {
             generalVideoMedia.CreateDeleteButton();
             generalVideoMedia.DeleteButton.Click += (sender, e) => DeleteMedia(generalVideoMedia);
             return generalVideoMedia.DeleteButton;
+        }
+
+        private TextBox CreateFileLocationLabel(string filelocation)
+        {
+            TextBox FileLocation = new TextBox();
+            FileLocation.Text = filelocation;
+            FileLocation.FontSize = fontSize;
+            FileLocation.FontWeight = FontWeights.Bold;
+            FileLocation.Margin = new Thickness(12, fontSize * 1.5, 0, 0);
+            brush.Color = Colors.Black;
+            FileLocation.Foreground = brush;
+            FileLocation.VerticalAlignment = VerticalAlignment.Center;
+            FileLocation.VerticalContentAlignment = VerticalAlignment.Top;
+            FileLocation.HorizontalContentAlignment = HorizontalAlignment.Left;
+            FileLocation.IsReadOnly = true;
+            FileLocation.TextWrapping = TextWrapping.Wrap;
+            FileLocation.BorderThickness = new Thickness(0, 0, 0, 0);
+            FileLocation.Background = Brushes.Transparent;
+            return FileLocation;
+        }
+
+        private Label CreateTitleLabel(string filename, int mediaID)
+        {
+            Label title = new Label();
+            GetTitleLabelContentFromDatabase(title, mediaID);
+            title.FontSize = fontSize;
+            title.FontWeight = FontWeights.Bold;
+            title.Margin = new Thickness(12, fontSize * 1.5, 0, 0);
+            brush.Color = Colors.Black;
+            title.Foreground = brush;
+            title.VerticalAlignment = VerticalAlignment.Top;
+            title.VerticalContentAlignment = VerticalAlignment.Top;
+            title.HorizontalContentAlignment = HorizontalAlignment.Left;
+            title.MouseDown += LabelClicked;
+            return title;
+        }
+
+        private Label CreateVideoWidthLabel(string filename)
+        {
+            Label videoWidth = new Label();
+            videoWidth.FontSize = fontSize;
+            videoWidth.FontWeight = FontWeights.Bold;
+            videoWidth.Margin = new Thickness(12, fontSize * 1.5, 0, 0);
+            brush.Color = Colors.Black;
+            videoWidth.VerticalAlignment = VerticalAlignment.Top;
+            videoWidth.VerticalContentAlignment = VerticalAlignment.Top;
+            videoWidth.HorizontalContentAlignment = HorizontalAlignment.Center;
+            videoWidth.MouseDown += LabelClicked;
+            return videoWidth;
+        }
+
+        private Label CreateVideoHeightLabel(string filename)
+        {
+            Label videoHeight = new Label();
+            videoHeight.FontSize = fontSize;
+            videoHeight.FontWeight = FontWeights.Bold;
+            videoHeight.Margin = new Thickness(12, fontSize * 1.5, 0, 0);
+            brush.Color = Colors.Black;
+            videoHeight.Foreground = brush;
+            videoHeight.VerticalAlignment = VerticalAlignment.Bottom;
+            videoHeight.VerticalContentAlignment = VerticalAlignment.Top;
+            videoHeight.HorizontalContentAlignment = HorizontalAlignment.Center;
+            videoHeight.MouseDown += LabelClicked;
+            return videoHeight;
+        }
+
+        private Label CreateDescriptionLabel(string filename, int mediaID)
+        {
+            Label description = new Label();
+            GetDescriptionLabelContentFromDatabase(description, mediaID);
+
+            if (description.Content == null || description.Content.ToString() == "")
+                description.Content = "Default Description";
+
+            description.FontSize = fontSize - 4;
+            description.FontWeight = FontWeights.Bold;
+            description.Margin = new Thickness(12, fontSize * 1.5, 0, 0);
+            brush.Color = Colors.Black;
+            description.Foreground = brush;
+            description.VerticalAlignment = VerticalAlignment.Bottom;
+            description.VerticalContentAlignment = VerticalAlignment.Top;
+            description.HorizontalContentAlignment = HorizontalAlignment.Left;
+            description.MouseDown += LabelClicked;
+            return description;
+        }
+
+        private TextBox CreateTitleTextBox(string filename, int mediaID)
+        {
+            TextBox titleTextBox = new TextBox();
+            Label title = new Label();
+            GetTitleLabelContentFromDatabase(title, mediaID);
+            GetTextBoxTextFromLabelContent(titleTextBox, title);
+            titleTextBox.FontSize = fontSize;
+            titleTextBox.FontWeight = FontWeights.Bold;
+            titleTextBox.Margin = new Thickness(12, fontSize * 1.5, 0, 0);
+            brush.Color = Colors.Black;
+            titleTextBox.Foreground = brush;
+            titleTextBox.VerticalAlignment = VerticalAlignment.Top;
+            titleTextBox.VerticalContentAlignment = VerticalAlignment.Top;
+            titleTextBox.HorizontalContentAlignment = HorizontalAlignment.Left;
+            titleTextBox.Visibility = Visibility.Hidden;
+            titleTextBox.LostFocus += TextBoxDoubleClicked;
+            titleTextBox.KeyDown += EnterPress;
+            return titleTextBox;
+        }
+
+        private TextBox CreateVideoWidthTextBox(string filename)
+        {
+            TextBox videoWidthTextBox = new TextBox();
+            videoWidthTextBox.FontSize = fontSize;
+            videoWidthTextBox.FontWeight = FontWeights.Bold;
+            videoWidthTextBox.Margin = new Thickness(12, fontSize * 1.5, 0, 0);
+            brush.Color = Colors.Black;
+            videoWidthTextBox.Foreground = brush;
+            videoWidthTextBox.VerticalAlignment = VerticalAlignment.Top;
+            videoWidthTextBox.VerticalContentAlignment = VerticalAlignment.Top;
+            videoWidthTextBox.HorizontalContentAlignment = HorizontalAlignment.Center;
+            videoWidthTextBox.Visibility = Visibility.Hidden;
+            videoWidthTextBox.LostFocus += TextBoxDoubleClicked;
+            videoWidthTextBox.KeyDown += EnterPress;
+            return videoWidthTextBox;
+        }
+
+        private TextBox CreateVideoHeightTextBox(string filename)
+        {
+            TextBox videoHeightTextBox = new TextBox();
+            videoHeightTextBox.FontSize = fontSize;
+            videoHeightTextBox.FontWeight = FontWeights.Bold;
+            videoHeightTextBox.Margin = new Thickness(12, fontSize * 1.5, 0, 0);
+            brush.Color = Colors.Black;
+            videoHeightTextBox.Foreground = brush;
+            videoHeightTextBox.VerticalAlignment = VerticalAlignment.Bottom;
+            videoHeightTextBox.VerticalContentAlignment = VerticalAlignment.Top;
+            videoHeightTextBox.HorizontalContentAlignment = HorizontalAlignment.Center;
+            videoHeightTextBox.Visibility = Visibility.Hidden;
+            videoHeightTextBox.LostFocus += TextBoxDoubleClicked;
+            videoHeightTextBox.KeyDown += EnterPress;
+            return videoHeightTextBox;
+        }
+
+
+        private TextBox CreateDescriptionTextBox(string filename, int mediaID)
+        {
+            TextBox descriptionTextBox = new TextBox();
+
+            Label description = new Label();
+            GetDescriptionLabelContentFromDatabase(description, mediaID);
+            GetTextBoxTextFromLabelContent(descriptionTextBox, description);
+            descriptionTextBox.FontSize = fontSize;
+            descriptionTextBox.FontWeight = FontWeights.Bold;
+            descriptionTextBox.Margin = new Thickness(12, fontSize * 1.5, 0, 0);
+            brush.Color = Colors.Black;
+            descriptionTextBox.Foreground = brush;
+            descriptionTextBox.VerticalAlignment = VerticalAlignment.Bottom;
+            descriptionTextBox.VerticalContentAlignment = VerticalAlignment.Top;
+            descriptionTextBox.HorizontalContentAlignment = HorizontalAlignment.Left;
+            descriptionTextBox.Visibility = Visibility.Hidden;
+            descriptionTextBox.LostFocus += TextBoxDoubleClicked;
+            descriptionTextBox.KeyDown += EnterPress;
+            return descriptionTextBox;
+
+        }
+        #endregion
+        #region GeneralVideoMedia Modifying Methods
+
+
+        private void ChangeMediaPlayProperties(MediaElement media, GeneralVideoMedia generalVideoMedia)
+        {
+            media.Width = MEDIA_WIDTH;
+            media.Height = MEDIA_HEIGHT;
+            media.Position = new TimeSpan(0);
+            media.Visibility = Visibility.Visible;
+            media.LoadedBehavior = MediaState.Manual;
+            media.Stop();
+            media.MouseDown += (sender, e) => generalVideoMedia.play = !generalVideoMedia.play;
         }
 
         private void DeleteMedia(GeneralVideoMedia generalVideoMedia)
@@ -355,175 +782,107 @@ namespace Important
                 var data = command.ExecuteReader();
                 GeneralVideoMedias.Remove(generalVideoMedia);
                 //OnSearch(this, null);
-                
+
             }
 
         }
 
-        private void AddGeneralVideoMediaInformationToDisplay(GeneralVideoMedia generalVideoMedia)
+
+        public void WriteToPng(MediaElement element, string filename)
         {
-            AddImageToDisplay(generalVideoMedia.InterfaceRowId);
-            AddTitleLabelToDisplay(generalVideoMedia.InterfaceRowId);
-            AddDescriptionLabelToDisplay(generalVideoMedia.InterfaceRowId);
-            AddTitleTextBoxToDisplay(generalVideoMedia.InterfaceRowId);
-            AddDescriptionTextBoxToDisplay(generalVideoMedia.InterfaceRowId);
-            AddFileLocationLabelToDisplay(generalVideoMedia.FileLocation, generalVideoMedia.InterfaceRowId);
-            AddDeleteButtonToDisplay(generalVideoMedia.DeleteButton, generalVideoMedia.InterfaceRowId);
+            MediaPlayer media = new MediaPlayer { Volume = 0, ScrubbingEnabled = true };
+            media.Open(element.Source);
+            media.Pause();
+            media.Position = TimeSpan.FromSeconds(1);
+            //We need to give MediaPlayer some time to load. 
+            //The efficiency of the MediaPlayer depends                 
+            //upon the capabilities of the machine it is running on and 
+            //would be different from time to time
+            System.Threading.Thread.Sleep(2000);
+
+            //MEDIA_WIDTH = thumbnail width, MEDIA_HEIGHT = thumbnail height and 96x96 = horizontal x vertical DPI
+            //In a real application, you would not probably use hard coded values!
+            RenderTargetBitmap rtb = new RenderTargetBitmap(MEDIA_WIDTH, MEDIA_HEIGHT, DpiX, DpiX, PixelFormats.Pbgra32);
+            DrawingVisual dv = new DrawingVisual();
+            using (DrawingContext dc = dv.RenderOpen())
+            {
+                dc.DrawVideo(media, new Rect(0, 0, MEDIA_WIDTH, MEDIA_HEIGHT));
+            }
+            rtb.Render(dv);
+            Duration duration = media.NaturalDuration;
+            int videoLength = 0;
+            if (duration.HasTimeSpan)
+            {
+                videoLength = (int)duration.TimeSpan.TotalSeconds;
+            }
+            BitmapFrame frame = BitmapFrame.Create(rtb).GetCurrentValueAsFrozen() as BitmapFrame;
+            BitmapEncoder encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(frame as BitmapFrame);
+            using (var file = File.OpenWrite(System.IO.Path.GetFullPath("Media") + @"\" + filename))
+            {
+                encoder.Save(file);
+            }
+            media.Close();
+        }
+        #endregion
+        #region Other GeneralVideoMedia Property-Using Methods
+        private GeneralVideoMedia GetGeneralVideoMediaWithRowId(int rowID)
+        {
+            foreach (GeneralVideoMedia generalVideoMedia in GeneralVideoMedias)
+            {
+                if (generalVideoMedia.InterfaceRowId == rowID)
+                {
+                    return generalVideoMedia;
+                }
+            }
+            return null;
         }
 
-        private void AddDeleteButtonToDisplay(Button deleteButton, int interfaceRowId)
+        private GeneralVideoMedia GetGeneralVideoMediaWithScrollViewID(int scrollviewID)
         {
-            grid.Children.Add(deleteButton);
-            Grid.SetColumn(deleteButton, 3);
-            Grid.SetRow(deleteButton, interfaceRowId + 1);
+            foreach (GeneralVideoMedia generalVideoMedia in GeneralVideoMedias)
+            {
+                if (generalVideoMedia.InterfaceRowId + generalVideoMedia.ScrollPositionChange == scrollviewID)
+                {
+                    return generalVideoMedia;
+                }
+            }
+            return null;
+        }
+        private void GetTextBoxTextFromLabelContent(TextBox textBox, Label label)
+        {
+            textBox.Text = label.Content.ToString();
+        }
+        public void ReplaceLabelWithTextBox(Label label, TextBox textBox)
+        {
+            label.Visibility = Visibility.Hidden;
+            textBox.Visibility = Visibility.Visible;
+            textBox.Focus();
         }
 
-        private void AddFileLocationLabelToDisplay(TextBox fileLocation, int rowID)
+        public void ReplaceTextBoxWithLabel(TextBox textBox, Label label)
         {
-            grid.Children.Add(fileLocation);
-            Grid.SetColumn(fileLocation, 2);
-            Grid.SetRow(fileLocation, rowID + 1);
-            fileLocation.InvalidateMeasure();
-            fileLocation.UpdateLayout();
+            label.Visibility = Visibility.Visible;
+            textBox.Visibility = Visibility.Hidden;
         }
-
-        private void AddMediaToTable(string fileName, string imgPath, string fileLocation)
-        {
-            string sql = "INSERT INTO medias(id_media, filename, img_path, title, description, filelocation) VALUES(NULL, '" + fileName + "', '" + imgPath + "', '" + fileName.Substring(0, fileName.Length - 4) + "', '" + "Default Description" + "', '" + fileLocation + "');";
-            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
-            int data = command.ExecuteNonQuery();
-
-        }
-
-        private int GetMostRecentlyInsertedMediaID()
-        {
-            int mediaID = -1;
-            string sql = "SELECT id_media FROM medias ORDER BY id_media DESC LIMIT 1";
-            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
-            var data = command.ExecuteReader();
-            mediaID = Int32.Parse(data.GetValue(0).ToString());
-            return mediaID;
-        }
-
-        private void CreateNonMedias()
-        {
-            listDetailsWidth = (double)window.Width / 2;
-            topCol.MinWidth = 40;
-            topCol.MaxWidth = 40;
-            colOfVids.MinWidth = FIRST_COLUMN_WIDTH;
-            colOfVids.MaxWidth = FIRST_COLUMN_WIDTH;
-            titleCol.MinWidth = window.Width / 2;
-            titleCol.MaxWidth = window.Width / 2;
-            topRow.MinHeight = FIRST_ROW_HEIGHT;
-            topRow.MaxHeight = FIRST_ROW_HEIGHT;
-            ColumnDefinition columnDefinition = new ColumnDefinition();
-            columnDefinition.Width = new GridLength(1, GridUnitType.Star);
-            grid.ColumnDefinitions.Add(columnDefinition);
-            ResetTables();
-        }
-
+        #endregion
+        #region GeneralVideoMedia Table Changing Methods
         private void ResetTables()
         {
-            //files = new System.IO.FileInfo[numMedias];
             GeneralVideoMedias.Clear();
         }
-
-        private GeneralVideoMedia CreateMedia(string filelocation)
+        #endregion
+        #region Video Playing Methods
+        private bool VideoPlaying()
         {
-            GeneralVideoMedia generalVideoMedia = new GeneralVideoMedia();
-            generalVideoMedia.play = false;
-            generalVideoMedia.MediaElement = new MediaElement();
-            generalVideoMedia.MediaElement.Name = "mediaElement";
-            generalVideoMedia.MediaElement.Source = new Uri(filelocation, UriKind.Relative);
-            generalVideoMedia.MediaElement.Margin = new Thickness(0, 0, 0, 0);
-            generalVideoMedia.MediaElement.UnloadedBehavior = MediaState.Close;
-            generalVideoMedia.MediaElement.RenderTransformOrigin = new Point(0.251, 0.47);
-            generalVideoMedia.MediaElement.Stretch = Stretch.Uniform;
-            generalVideoMedia.MediaElement.StretchDirection = StretchDirection.Both;
-            generalVideoMedia.MediaElement.RenderSize = new Size(MEDIA_WIDTH, MEDIA_HEIGHT);
-            generalVideoMedia.MediaElement.MouseDown += MediaElement_MouseDown;
-
-            RowDefinition row = new RowDefinition();
-            row.MaxHeight = MEDIA_HEIGHT + 24;
-            row.MinHeight = MEDIA_HEIGHT + 24;
-            grid.RowDefinitions.Add(row);
-
-            generalVideoMedia.InterfaceRowId = (grid.RowDefinitions.IndexOf(row) - 1);
-
-            return generalVideoMedia;
-        }
-
-        private void MediaElement_MouseDown(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ClickCount >= 2)
+            for (int i = 0; i < GeneralVideoMedias.Count; i++)
             {
-                if (!videoInFullScreen)
+                if (GeneralVideoMedias[i].videoDisplayed == true)
                 {
-                    RowDefinition rowDefinition = new RowDefinition();
-                    rowDefinition.Height = new GridLength(1,GridUnitType.Star);
-                    (sender as MediaElement).Margin = new Thickness(0,-4,-12,0);
-                    grid.RowDefinitions.Add(rowDefinition);
-                    this.WindowStyle = WindowStyle.None;
-                    this.WindowState = WindowState.Maximized;
-                    Grid.SetRow((sender as MediaElement), 0);
-                    Grid.SetColumn((sender as MediaElement), 0);
-                    Grid.SetColumnSpan((sender as MediaElement), 10);
-                    Grid.SetRowSpan((sender as MediaElement), 10);
-                    (sender as MediaElement).Width = Window.GetWindow(this).Width;
-                    (sender as MediaElement).Height = Window.GetWindow(this).Height;
+                    return true;
                 }
-                else
-                {
-                    Grid.SetRow((sender as MediaElement), 2);
-                    Grid.SetColumn((sender as MediaElement), 2);
-                    Grid.SetColumnSpan((sender as MediaElement), 1);
-                    Grid.SetRowSpan((sender as MediaElement), 1);
-                    (sender as MediaElement).Width = 1280;
-                    (sender as MediaElement).Height = 720;
-                    this.WindowStyle = WindowStyle.SingleBorderWindow;
-                    this.WindowState = WindowState.Normal;
-
-                }
-                videoInFullScreen = !videoInFullScreen;
             }
-        }
-
-        private Image CreateImage(MediaElement mediaElement, string filename)
-        {
-            if (!File.Exists(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length - 4) + ".png"))
-                WriteToPng(mediaElement, filename.Substring(0, filename.Length - 4) + ".png");
-
-            //Console.WriteLine("Image Resource Exists? : " + ResourceExists(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length - 4) + ".png"));
-            BitmapImage bitmap = new BitmapImage(new Uri(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length - 4) + ".png", UriKind.Absolute));
-
-            
-            Image image = new Image();
-            image.Source = bitmap;
-            image.Width = MEDIA_WIDTH;
-            image.Height = MEDIA_HEIGHT;
-            image.RenderTransformOrigin = new Point(0.251, 0.47);
-            image.Stretch = Stretch.Uniform;
-            image.StretchDirection = StretchDirection.Both;
-            image.Margin = new Thickness(12,12,0,0);
-            image.Visibility = Visibility.Visible;
-            image.MouseDown += PlayVideo;
-
-            return image;
-        }
-
-        private void AddImageToDisplay(int count)
-        {
-            grid.Children.Add(GetGeneralVideoMediaWithRowId(count).Image);
-            Grid.SetColumn(GetGeneralVideoMediaWithRowId(count).Image, 1);
-            Grid.SetRow(GetGeneralVideoMediaWithRowId(count).Image, count + 1);
-            GetGeneralVideoMediaWithRowId(count).Image.InvalidateMeasure();
-            GetGeneralVideoMediaWithRowId(count).Image.UpdateLayout();
-            if (GetGeneralVideoMediaWithRowId(count).Image.Source == null) { Console.WriteLine("Invalid Source!"); }
-            if (!GetGeneralVideoMediaWithRowId(count).Image.IsMeasureValid) { Console.WriteLine("Measure Invalid"); }
-            if ( !GetGeneralVideoMediaWithRowId(count).Image.IsArrangeValid) { Console.WriteLine("Arrangement Invalid"); }
-            if (!GetGeneralVideoMediaWithRowId(count).Image.IsLoaded) { Console.WriteLine("Wrongly Loaded"); };
-            if (!GetGeneralVideoMediaWithRowId(count).Image.IsVisible) { Console.WriteLine("Not visible!"); }
-            if (!GetGeneralVideoMediaWithRowId(count).Image.IsEnabled) { Console.WriteLine("Not Enabled!"); }
+            return false;
         }
 
         /// <summary>
@@ -547,10 +906,10 @@ namespace Important
                     }
                 }
             }
-                RemoveMediasFromList();
+            RemoveMediasFromList();
 
-                int TitleRowHeight = 100;
-                int Scale = 5;
+            int TitleRowHeight = 100;
+            int Scale = 5;
 
             int EndMediaHeight;
             if (playedVideo.VideoHeight.Content == null || playedVideo.VideoHeight.Content.ToString() == "")
@@ -564,63 +923,83 @@ namespace Important
                 EndVideoWidth = Int32.Parse(playedVideo.VideoWidth.Content.ToString());
 
             int DescriptionRowHeight = MEDIA_HEIGHT;
-                window.Width = EndVideoWidth + FIRST_COLUMN_WIDTH + GENERAL_MEDIA_OFFSET;
-                window.Height = EndMediaHeight + (FIRST_ROW_HEIGHT) + TitleRowHeight + GENERAL_MEDIA_OFFSET + DescriptionRowHeight;
-                
-                RowDefinition TitleRow = new RowDefinition();
-                TitleRow.MaxHeight = TitleRowHeight;
-                TitleRow.MinHeight = TitleRowHeight;
-                grid.RowDefinitions.Add(TitleRow);
-                
-                RowDefinition VideoRow = new RowDefinition();
-                VideoRow.MaxHeight = EndMediaHeight;
-                VideoRow.MinHeight = EndMediaHeight;
-                grid.RowDefinitions.Add(VideoRow);
+            window.Width = EndVideoWidth + FIRST_COLUMN_WIDTH + GENERAL_MEDIA_OFFSET;
+            window.Height = EndMediaHeight + (FIRST_ROW_HEIGHT) + TitleRowHeight + GENERAL_MEDIA_OFFSET + DescriptionRowHeight;
+
+            RowDefinition TitleRow = new RowDefinition();
+            TitleRow.MaxHeight = TitleRowHeight;
+            TitleRow.MinHeight = TitleRowHeight;
+            grid.RowDefinitions.Add(TitleRow);
+
+            RowDefinition VideoRow = new RowDefinition();
+            VideoRow.MaxHeight = EndMediaHeight;
+            VideoRow.MinHeight = EndMediaHeight;
+            grid.RowDefinitions.Add(VideoRow);
 
 
-                RowDefinition LocationRow = new RowDefinition();
-                LocationRow.MaxHeight = fontSize * 3.5;
-                LocationRow.MinHeight = fontSize * 3.5;
-                grid.RowDefinitions.Add(LocationRow);
+            RowDefinition LocationRow = new RowDefinition();
+            LocationRow.MaxHeight = fontSize * 3.5;
+            LocationRow.MinHeight = fontSize * 3.5;
+            grid.RowDefinitions.Add(LocationRow);
 
-                RowDefinition DescriptionRow = new RowDefinition();
-                DescriptionRow.MaxHeight = DescriptionRowHeight;
-                DescriptionRow.MinHeight = DescriptionRowHeight;
-                grid.RowDefinitions.Add(DescriptionRow);
-            
+            RowDefinition DescriptionRow = new RowDefinition();
+            DescriptionRow.MaxHeight = DescriptionRowHeight;
+            DescriptionRow.MinHeight = DescriptionRowHeight;
+            grid.RowDefinitions.Add(DescriptionRow);
 
-                grid.ColumnDefinitions[2].MinWidth = EndVideoWidth;
-                grid.ColumnDefinitions[2].MaxWidth = EndVideoWidth;
 
-                
-                playedVideo.Title.HorizontalAlignment = HorizontalAlignment.Center;
-                playedVideo.TitleTextBox.HorizontalAlignment = HorizontalAlignment.Center;
-                playedVideo.Description.VerticalAlignment = VerticalAlignment.Top;
-                playedVideo.DescriptionTextBox.VerticalAlignment = VerticalAlignment.Top;
-                if (playedVideo.VideoWidth.Content == null || playedVideo.VideoWidth.Content.ToString() == "")
-                {
-                    playedVideo.VideoWidth.Content = EndVideoWidth.ToString();
-                    playedVideo.VideoWidthTextBox.Text = EndVideoWidth.ToString();
-                }
-                if (playedVideo.VideoHeight.Content == null || playedVideo.VideoHeight.Content.ToString() == "" )
-                {
-                    playedVideo.VideoHeight.Content = EndMediaHeight.ToString();
-                    playedVideo.VideoHeightTextBox.Text = EndMediaHeight.ToString();
-                }
+            grid.ColumnDefinitions[2].MinWidth = EndVideoWidth;
+            grid.ColumnDefinitions[2].MaxWidth = EndVideoWidth;
 
-                AddPlayedVideoToInterface(playedVideo);
 
-                playedVideo.MediaElement.Width = EndVideoWidth;
-                playedVideo.MediaElement.Height = EndMediaHeight;
-                playedVideo.MediaElement.VerticalAlignment = VerticalAlignment.Top;
-                playedVideo.MediaElement.HorizontalAlignment = HorizontalAlignment.Center;
+            playedVideo.Title.HorizontalAlignment = HorizontalAlignment.Center;
+            playedVideo.TitleTextBox.HorizontalAlignment = HorizontalAlignment.Center;
+            playedVideo.Description.VerticalAlignment = VerticalAlignment.Top;
+            playedVideo.DescriptionTextBox.VerticalAlignment = VerticalAlignment.Top;
+            if (playedVideo.VideoWidth.Content == null || playedVideo.VideoWidth.Content.ToString() == "")
+            {
+                playedVideo.VideoWidth.Content = EndVideoWidth.ToString();
+                playedVideo.VideoWidthTextBox.Text = EndVideoWidth.ToString();
+            }
+            if (playedVideo.VideoHeight.Content == null || playedVideo.VideoHeight.Content.ToString() == "")
+            {
+                playedVideo.VideoHeight.Content = EndMediaHeight.ToString();
+                playedVideo.VideoHeightTextBox.Text = EndMediaHeight.ToString();
+            }
 
-                AddMediaElementToPlayedVideo(playedVideo.MediaElement);
+            AddPlayedVideoToInterface(playedVideo);
 
-                playedVideo.play = true;
+            playedVideo.MediaElement.Width = EndVideoWidth;
+            playedVideo.MediaElement.Height = EndMediaHeight;
+            playedVideo.MediaElement.VerticalAlignment = VerticalAlignment.Top;
+            playedVideo.MediaElement.HorizontalAlignment = HorizontalAlignment.Center;
+
+            AddMediaElementToPlayedVideo(playedVideo.MediaElement);
+
+            playedVideo.play = true;
             //}
         }
 
+        private void RemoveMediasFromList()
+        {
+            foreach (GeneralVideoMedia media in GeneralVideoMedias)
+            {
+                grid.Children.Remove(media.MediaElement);
+                grid.Children.Remove(media.Title);
+                grid.Children.Remove(media.TitleTextBox);
+                grid.Children.Remove(media.Description);
+                grid.Children.Remove(media.DescriptionTextBox);
+                grid.Children.Remove(media.VideoWidth);
+                grid.Children.Remove(media.VideoWidthTextBox);
+                grid.Children.Remove(media.VideoHeight);
+                grid.Children.Remove(media.VideoHeightTextBox);
+                grid.Children.Remove(media.Image);
+                grid.Children.Remove(media.FileLocation);
+            }
+            while (grid.RowDefinitions.Count > 1)
+                grid.RowDefinitions.Remove(grid.RowDefinitions[1]);
+        }
+        #region Add Played Video Information to Interface
         private void AddPlayedVideoToInterface(GeneralVideoMedia playedVideo)
         {
             AddTitleToPlayedVideo(playedVideo.Title);
@@ -709,60 +1088,50 @@ namespace Important
             Grid.SetColumn(fileLocation, 2);
             Grid.SetRow(fileLocation, 3);
         }
-
-        private void RemoveMediasFromList()
+        #endregion
+        #endregion
+        #region Listing Methods
+        #region Add Videos to List
+        private void AddGeneralVideoMediaInformationToDisplay(GeneralVideoMedia generalVideoMedia)
         {
-            foreach (GeneralVideoMedia media in GeneralVideoMedias)
-            {
-                grid.Children.Remove(media.MediaElement);
-                grid.Children.Remove(media.Title);
-                grid.Children.Remove(media.TitleTextBox);
-                grid.Children.Remove(media.Description);
-                grid.Children.Remove(media.DescriptionTextBox);
-                grid.Children.Remove(media.VideoWidth);
-                grid.Children.Remove(media.VideoWidthTextBox);
-                grid.Children.Remove(media.VideoHeight);
-                grid.Children.Remove(media.VideoHeightTextBox);
-                grid.Children.Remove(media.Image);
-                grid.Children.Remove(media.FileLocation);
-            }
-            while(grid.RowDefinitions.Count > 1)
-                    grid.RowDefinitions.Remove(grid.RowDefinitions[1]);
+            AddImageToDisplay(generalVideoMedia.InterfaceRowId);
+            AddTitleLabelToDisplay(generalVideoMedia.InterfaceRowId);
+            AddDescriptionLabelToDisplay(generalVideoMedia.InterfaceRowId);
+            AddTitleTextBoxToDisplay(generalVideoMedia.InterfaceRowId);
+            AddDescriptionTextBoxToDisplay(generalVideoMedia.InterfaceRowId);
+            AddFileLocationLabelToDisplay(generalVideoMedia.FileLocation, generalVideoMedia.InterfaceRowId);
+            AddDeleteButtonToDisplay(generalVideoMedia.DeleteButton, generalVideoMedia.InterfaceRowId);
         }
 
-        private TextBox CreateFileLocationLabel(string filelocation)
+        private void AddDeleteButtonToDisplay(Button deleteButton, int interfaceRowId)
         {
-            TextBox FileLocation = new TextBox();
-            FileLocation.Text = filelocation;
-            FileLocation.FontSize = fontSize;
-            FileLocation.FontWeight = FontWeights.Bold;
-            FileLocation.Margin = new Thickness(12, fontSize * 1.5, 0, 0);
-            brush.Color = Colors.Black;
-            FileLocation.Foreground = brush;
-            FileLocation.VerticalAlignment = VerticalAlignment.Center;
-            FileLocation.VerticalContentAlignment = VerticalAlignment.Top;
-            FileLocation.HorizontalContentAlignment = HorizontalAlignment.Left;
-            FileLocation.IsReadOnly = true;
-            FileLocation.TextWrapping = TextWrapping.Wrap;
-            FileLocation.BorderThickness = new Thickness(0,0,0,0);
-            FileLocation.Background = Brushes.Transparent;
-            return FileLocation;
+            grid.Children.Add(deleteButton);
+            Grid.SetColumn(deleteButton, 3);
+            Grid.SetRow(deleteButton, interfaceRowId + 1);
         }
 
-        private Label CreateTitleLabel(string filename, int mediaID)
+        private void AddFileLocationLabelToDisplay(TextBox fileLocation, int rowID)
         {
-            Label title = new Label();
-            GetTitleLabelContentFromDatabase(title, mediaID);
-            title.FontSize = fontSize;
-            title.FontWeight = FontWeights.Bold;
-            title.Margin = new Thickness(12, fontSize * 1.5, 0, 0);
-            brush.Color = Colors.Black;
-            title.Foreground = brush;
-            title.VerticalAlignment = VerticalAlignment.Top;
-            title.VerticalContentAlignment = VerticalAlignment.Top;
-            title.HorizontalContentAlignment = HorizontalAlignment.Left;
-            title.MouseDown += LabelClicked;
-            return title; 
+            grid.Children.Add(fileLocation);
+            Grid.SetColumn(fileLocation, 2);
+            Grid.SetRow(fileLocation, rowID + 1);
+            fileLocation.InvalidateMeasure();
+            fileLocation.UpdateLayout();
+        }
+
+        private void AddImageToDisplay(int count)
+        {
+            grid.Children.Add(GetGeneralVideoMediaWithRowId(count).Image);
+            Grid.SetColumn(GetGeneralVideoMediaWithRowId(count).Image, 1);
+            Grid.SetRow(GetGeneralVideoMediaWithRowId(count).Image, count + 1);
+            GetGeneralVideoMediaWithRowId(count).Image.InvalidateMeasure();
+            GetGeneralVideoMediaWithRowId(count).Image.UpdateLayout();
+            if (GetGeneralVideoMediaWithRowId(count).Image.Source == null) { Console.WriteLine("Invalid Source!"); }
+            if (!GetGeneralVideoMediaWithRowId(count).Image.IsMeasureValid) { Console.WriteLine("Measure Invalid"); }
+            if (!GetGeneralVideoMediaWithRowId(count).Image.IsArrangeValid) { Console.WriteLine("Arrangement Invalid"); }
+            if (!GetGeneralVideoMediaWithRowId(count).Image.IsLoaded) { Console.WriteLine("Wrongly Loaded"); };
+            if (!GetGeneralVideoMediaWithRowId(count).Image.IsVisible) { Console.WriteLine("Not visible!"); }
+            if (!GetGeneralVideoMediaWithRowId(count).Image.IsEnabled) { Console.WriteLine("Not Enabled!"); }
         }
 
         private void AddTitleLabelToDisplay(int count)
@@ -772,148 +1141,11 @@ namespace Important
             Grid.SetRow(GetGeneralVideoMediaWithRowId(count).Title, count + 1);
         }
 
-        private Label CreateVideoWidthLabel(string filename)
-        {
-            Label videoWidth = new Label();
-            videoWidth.FontSize = fontSize;
-            videoWidth.FontWeight = FontWeights.Bold;
-            videoWidth.Margin = new Thickness(12, fontSize * 1.5, 0, 0);
-            brush.Color = Colors.Black;
-            videoWidth.VerticalAlignment = VerticalAlignment.Top;
-            videoWidth.VerticalContentAlignment = VerticalAlignment.Top;
-            videoWidth.HorizontalContentAlignment = HorizontalAlignment.Center;
-            videoWidth.MouseDown += LabelClicked;
-            return videoWidth;
-        }
-
-        private Label CreateVideoHeightLabel(string filename)
-        {
-            Label videoHeight = new Label();
-            videoHeight.FontSize = fontSize;
-            videoHeight.FontWeight = FontWeights.Bold;
-            videoHeight.Margin = new Thickness(12, fontSize * 1.5, 0, 0);
-            brush.Color = Colors.Black;
-            videoHeight.Foreground = brush;
-            videoHeight.VerticalAlignment = VerticalAlignment.Bottom;
-            videoHeight.VerticalContentAlignment = VerticalAlignment.Top;
-            videoHeight.HorizontalContentAlignment = HorizontalAlignment.Center;
-            videoHeight.MouseDown += LabelClicked;
-            return videoHeight;
-        }
-
-        private Label CreateDescriptionLabel(string filename, int mediaID)
-        {
-            Label description = new Label();
-            GetDescriptionLabelContentFromDatabase(description, mediaID);
-
-            if (description.Content == null || description.Content.ToString() == "")
-                description.Content = "Default Description";
-
-            description.FontSize = fontSize - 4;
-            description.FontWeight = FontWeights.Bold;
-            description.Margin = new Thickness(12, fontSize * 1.5, 0, 0);
-            brush.Color = Colors.Black;
-            description.Foreground = brush;
-            description.VerticalAlignment = VerticalAlignment.Bottom;
-            description.VerticalContentAlignment = VerticalAlignment.Top;
-            description.HorizontalContentAlignment = HorizontalAlignment.Left;
-            description.MouseDown += LabelClicked;
-            return description;
-        }
-
         private void AddDescriptionLabelToDisplay(int count)
         {
             grid.Children.Add(GetGeneralVideoMediaWithRowId(count).Description);
             Grid.SetColumn(GetGeneralVideoMediaWithRowId(count).Description, 2);
             Grid.SetRow(GetGeneralVideoMediaWithRowId(count).Description, count + 1);
-        }
-
-        private void LabelClicked(object sender, RoutedEventArgs e)
-        {
-            if(sender is Label)
-            {
-                for (int count = 0; count < GeneralVideoMedias.Count; count++)
-                {
-                    if (GeneralVideoMedias[count].Title == sender as Label)
-                    {
-                        ReplaceLabelWithTextBox(GeneralVideoMedias[count].Title, GeneralVideoMedias[count].TitleTextBox);
-                    }
-                    else if (GeneralVideoMedias[count].Description == sender as Label)
-                    {
-                        ReplaceLabelWithTextBox(GeneralVideoMedias[count].Description, GeneralVideoMedias[count].DescriptionTextBox);
-                    }
-                    else if (GeneralVideoMedias[count].VideoWidth == sender as Label)
-                    {
-                        ReplaceLabelWithTextBox(GeneralVideoMedias[count].VideoWidth, GeneralVideoMedias[count].VideoWidthTextBox);
-                    }
-                    else if (GeneralVideoMedias[count].VideoHeight == sender as Label)
-                    {
-                        ReplaceLabelWithTextBox(GeneralVideoMedias[count].VideoHeight, GeneralVideoMedias[count].VideoHeightTextBox);
-                    }
-                }
-            }
-        }
-
-        private TextBox CreateTitleTextBox(string filename, int mediaID)
-        {
-            TextBox titleTextBox = new TextBox();
-            Label title = new Label();
-            GetTitleLabelContentFromDatabase(title, mediaID);
-            GetTextBoxTextFromLabelContent(titleTextBox, title);
-            titleTextBox.FontSize = fontSize;
-            titleTextBox.FontWeight = FontWeights.Bold;
-            titleTextBox.Margin = new Thickness(12, fontSize * 1.5, 0, 0);
-            brush.Color = Colors.Black;
-            titleTextBox.Foreground = brush;
-            titleTextBox.VerticalAlignment = VerticalAlignment.Top;
-            titleTextBox.VerticalContentAlignment = VerticalAlignment.Top;
-            titleTextBox.HorizontalContentAlignment = HorizontalAlignment.Left;
-            titleTextBox.Visibility = Visibility.Hidden;
-            titleTextBox.LostFocus += TextBoxDoubleClicked;
-            titleTextBox.KeyDown += EnterPress;
-            return titleTextBox;
-        }
-
-        private void EnterPress(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Enter)
-            {
-                TextBoxDoubleClicked(sender, e);
-            }
-        }
-
-        private TextBox CreateVideoWidthTextBox(string filename)
-        {
-            TextBox videoWidthTextBox = new TextBox();
-            videoWidthTextBox.FontSize = fontSize;
-            videoWidthTextBox.FontWeight = FontWeights.Bold;
-            videoWidthTextBox.Margin = new Thickness(12, fontSize * 1.5, 0, 0);
-            brush.Color = Colors.Black;
-            videoWidthTextBox.Foreground = brush;
-            videoWidthTextBox.VerticalAlignment = VerticalAlignment.Top;
-            videoWidthTextBox.VerticalContentAlignment = VerticalAlignment.Top;
-            videoWidthTextBox.HorizontalContentAlignment = HorizontalAlignment.Center;
-            videoWidthTextBox.Visibility = Visibility.Hidden;
-            videoWidthTextBox.LostFocus += TextBoxDoubleClicked;
-            videoWidthTextBox.KeyDown += EnterPress;
-            return videoWidthTextBox;
-        }
-
-        private TextBox CreateVideoHeightTextBox(string filename)
-        {
-            TextBox videoHeightTextBox = new TextBox();
-            videoHeightTextBox.FontSize = fontSize;
-            videoHeightTextBox.FontWeight = FontWeights.Bold;
-            videoHeightTextBox.Margin = new Thickness(12, fontSize * 1.5, 0, 0);
-            brush.Color = Colors.Black;
-            videoHeightTextBox.Foreground = brush;
-            videoHeightTextBox.VerticalAlignment = VerticalAlignment.Bottom;
-            videoHeightTextBox.VerticalContentAlignment = VerticalAlignment.Top;
-            videoHeightTextBox.HorizontalContentAlignment = HorizontalAlignment.Center;
-            videoHeightTextBox.Visibility = Visibility.Hidden;
-            videoHeightTextBox.LostFocus += TextBoxDoubleClicked;
-            videoHeightTextBox.KeyDown += EnterPress;
-            return videoHeightTextBox;
         }
 
         private void AddTitleTextBoxToDisplay(int count)
@@ -923,274 +1155,44 @@ namespace Important
             Grid.SetRow(GetGeneralVideoMediaWithRowId(count).TitleTextBox, count + 1);
         }
 
-        private TextBox CreateDescriptionTextBox(string filename, int mediaID)
-        {
-            TextBox descriptionTextBox = new TextBox();
-            
-            Label description = new Label();
-            GetDescriptionLabelContentFromDatabase(description, mediaID);
-            GetTextBoxTextFromLabelContent(descriptionTextBox, description);
-            descriptionTextBox.FontSize = fontSize;
-            descriptionTextBox.FontWeight = FontWeights.Bold;
-            descriptionTextBox.Margin = new Thickness(12, fontSize * 1.5, 0, 0);
-            brush.Color = Colors.Black;
-            descriptionTextBox.Foreground = brush;
-            descriptionTextBox.VerticalAlignment = VerticalAlignment.Bottom;
-            descriptionTextBox.VerticalContentAlignment = VerticalAlignment.Top;
-            descriptionTextBox.HorizontalContentAlignment = HorizontalAlignment.Left;
-            descriptionTextBox.Visibility = Visibility.Hidden;
-            descriptionTextBox.LostFocus += TextBoxDoubleClicked;
-            descriptionTextBox.KeyDown += EnterPress;
-            return descriptionTextBox;
-            
-        }
-
         private void AddDescriptionTextBoxToDisplay(int count)
         {
             grid.Children.Add(GetGeneralVideoMediaWithRowId(count).DescriptionTextBox);
             Grid.SetColumn(GetGeneralVideoMediaWithRowId(count).DescriptionTextBox, 2);
             Grid.SetRow(GetGeneralVideoMediaWithRowId(count).DescriptionTextBox, count + 1);
         }
+        #endregion
 
-        private void TextBoxDoubleClicked(object sender, RoutedEventArgs e)
+        private void RemovePlayingVideoForSearch()
         {
-            if (sender is TextBox)
+            bool TakeOffPlayingVideo = false;
+            foreach (GeneralVideoMedia generalVideoMedia in GeneralVideoMedias)
             {
-                if ((sender as TextBox).Visibility != Visibility.Hidden)
+                if (generalVideoMedia.videoDisplayed)
                 {
-                    for (int count = 0; count < GeneralVideoMedias.Count; count++)
-                    {
-                        if (GeneralVideoMedias[count].TitleTextBox == sender as TextBox)
-                        {
-                            ReplaceTextBoxWithLabel(GeneralVideoMedias[count].TitleTextBox, GeneralVideoMedias[count].Title);
-                            UpdateTitleOfSpecificMedia(GeneralVideoMedias[count].MediaId, (sender as TextBox).Text);
-                            GeneralVideoMedias[count].Title.Content = GetTitleOfMedia(GeneralVideoMedias[count].MediaId);
-                        }
-                        else if (GeneralVideoMedias[count].DescriptionTextBox == sender as TextBox)
-                        {
-                            ReplaceTextBoxWithLabel(GeneralVideoMedias[count].DescriptionTextBox, GeneralVideoMedias[count].Description);
-                            UpdateDescripitionOfSpecificMedia(GeneralVideoMedias[count].MediaId, (sender as TextBox).Text);
-                            GeneralVideoMedias[count].Description.Content = GetDescriptionOfMedia(GeneralVideoMedias[count].MediaId);
-                        }
-                        else if (GeneralVideoMedias[count].VideoWidthTextBox == sender as TextBox)
-                        {
-                            ReplaceTextBoxWithLabel(GeneralVideoMedias[count].VideoWidthTextBox, GeneralVideoMedias[count].VideoWidth);
-                            GeneralVideoMedias[count].VideoWidth.Content = (sender as TextBox).Text;
-                            double testDouble;
-                            if (Double.TryParse((sender as TextBox).Text, out testDouble) == true)
-                            {
-                                grid.ColumnDefinitions[2].MinWidth = Double.Parse((sender as TextBox).Text);
-                                grid.ColumnDefinitions[2].MaxWidth = Double.Parse((sender as TextBox).Text);
-                                window.Width = Double.Parse((sender as TextBox).Text) + FIRST_COLUMN_WIDTH + GENERAL_MEDIA_OFFSET;
-                                GeneralVideoMedias[count].SetVideoWidth(Double.Parse((sender as TextBox).Text));
-                            }
-                        }
-                        else if (GeneralVideoMedias[count].VideoHeightTextBox == sender as TextBox)
-                        {
-                            ReplaceTextBoxWithLabel(GeneralVideoMedias[count].VideoHeightTextBox, GeneralVideoMedias[count].VideoHeight);
-                            GeneralVideoMedias[count].VideoHeight.Content = (sender as TextBox).Text;
-                            double testDouble;
-                            if (Double.TryParse((sender as TextBox).Text, out testDouble) == true)
-                            {
-                                grid.RowDefinitions[2].MinHeight = Double.Parse((sender as TextBox).Text);
-                                grid.RowDefinitions[2].MaxHeight = Double.Parse((sender as TextBox).Text);
-                                window.Height = Double.Parse((sender as TextBox).Text) + (FIRST_ROW_HEIGHT) + 100 + GENERAL_MEDIA_OFFSET + MEDIA_HEIGHT;
-                                GeneralVideoMedias[count].SetVideoHeight(Double.Parse((sender as TextBox).Text));
-                            }
-                        }
-                    }
+                    TakeOffPlayingVideo = true;
+                }
+            }
+            if (TakeOffPlayingVideo)
+            {
+                grid.RowDefinitions.Remove(grid.RowDefinitions[3]);
+                grid.RowDefinitions.Remove(grid.RowDefinitions[2]);
+                grid.RowDefinitions.Remove(grid.RowDefinitions[1]);
+                foreach (GeneralVideoMedia media in GeneralVideoMedias)
+                {
+                    media.play = false;
+                    media.MediaElement.VerticalAlignment = VerticalAlignment.Center;
+                    media.Title.HorizontalAlignment = HorizontalAlignment.Left;
+                    media.TitleTextBox.HorizontalAlignment = HorizontalAlignment.Left;
+                    media.Description.VerticalAlignment = VerticalAlignment.Bottom;
+                    media.DescriptionTextBox.VerticalAlignment = VerticalAlignment.Bottom;
+                    media.videoDisplayed = false;
+                    grid.Children.Remove(media.MediaElement);
                 }
             }
         }
 
-        private void GetTitleLabelContentFromDatabase(Label Title, int fileID)
-        {
-            string sql = "SELECT title FROM medias WHERE id_media = '" + (fileID) + "';";
-            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
-            using (var data = command.ExecuteReader())
-            {
-                while (data.Read())
-                {
-                    Title.Content = data.GetValue(0).ToString();
-                }
-                data.Close();
-            }
-        }
 
-        private void GetDescriptionLabelContentFromDatabase(Label Description, int fileID)
-        {
-            string sql = "SELECT description FROM medias WHERE id_media = '" + (fileID) + "';";
-            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
-            using (var data = command.ExecuteReader())
-            {
-                while (data.Read())
-                {
-                    Description.Content = data.GetValue(0).ToString();
-                }
-                data.Close();
-            }
-        }
-
-        private void GetTextBoxTextFromLabelContent(TextBox textBox, Label label)
-        {
-            textBox.Text = label.Content.ToString();
-        }
-
-        private void CreateGridTopParts()
-        {
-            Grid.SetRow(Title, 0);
-            searchBox.VerticalAlignment = VerticalAlignment.Center;
-            searchBox.HorizontalAlignment = HorizontalAlignment.Left;
-            searchBoxHint.VerticalAlignment = VerticalAlignment.Center;
-            searchBoxHint.HorizontalAlignment = HorizontalAlignment.Left;
-            searchButton.Width = 40;
-            searchButton.Height = 34;
-            searchButton.Margin = new Thickness(searchBox.Width, 0, 0, 0);
-
-            Grid.SetRow(searchBox, 0);
-            Grid.SetRow(searchBoxHint, 0);
-            Grid.SetRow(searchButton, 0);
-            Grid.SetRow(upload, 0);
-            Grid.SetColumn(Title, 1);
-            Grid.SetColumn(searchBox, 2);
-            Grid.SetColumn(searchBoxHint, 2);
-            Grid.SetColumn(searchButton, 2);
-            Grid.SetColumn(upload, 3);
-        }
-
-        private void ChangeMediaPlayProperties(MediaElement media, GeneralVideoMedia generalVideoMedia)
-        {
-            media.Width = MEDIA_WIDTH;
-            media.Height = MEDIA_HEIGHT;
-            media.Position = new TimeSpan(0);
-            media.Visibility = Visibility.Visible;
-            media.LoadedBehavior = MediaState.Manual;
-            media.Stop();
-            media.MouseDown += (sender,e) => generalVideoMedia.play = !generalVideoMedia.play;
-        }
-
-        private void CreateTable()
-        {
-            m_dbConnection.Open();
-            string sqlcreate = "create table if not exists medias (id_media INTEGER PRIMARY KEY, filename varchar(5000), img_path varchar(5000), title varchar(5000), description varchar(5000), filelocation varchar(5000));";
-            SQLiteCommand commandcreate = new SQLiteCommand(sqlcreate, m_dbConnection);
-            commandcreate.ExecuteNonQuery();
-        }
-
-        private void OnApplicationLayoutGridLoaded(object sender, RoutedEventArgs e)
-        {
-            InitializeApplication();
-        }
-
-        private void InitializeApplication()
-        {
-            CreateTable();
-            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Assembly.GetEntryAssembly().Location) + "\\Media");
-            title = System.IO.Path.GetFileName(Assembly.GetEntryAssembly().Location).Substring(0, System.IO.Path.GetFileName(Assembly.GetEntryAssembly().Location).Length - 4);
-            (Title as Label).Content = title;
-            title = "Demomaker's Video Library - " + title;
-            window.SetValue(TitleProperty, title);
-            CreateNonMedias();
-            deleteCol.MinWidth = MEDIA_HEIGHT + 4;
-            deleteCol.MaxWidth = MEDIA_HEIGHT + 4;
-            List<int> MediaIDs = new List<int>();
-            string sql = "SELECT id_media from medias";
-            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
-            using (var data = command.ExecuteReader())
-            {
-                while (data.Read())
-                {
-                    MediaIDs.Add(Int32.Parse(data.GetValue(0).ToString()));
-                }
-                data.Close();
-            }
-            foreach (int mediaID in MediaIDs)
-            {
-                sql = "SELECT filelocation from medias WHERE id_media = '" + mediaID + "'";
-                command = new SQLiteCommand(sql, m_dbConnection);
-                var data = command.ExecuteReader();
-                string filelocation = data.GetValue(0).ToString();
-
-                sql = "SELECT filename from medias WHERE id_media = '" + mediaID + "'";
-                command = new SQLiteCommand(sql, m_dbConnection);
-                data = command.ExecuteReader();
-                string filename = data.GetValue(0).ToString();
-
-                if (File.Exists(filelocation))
-                {
-                    GeneralVideoMedia generalVideoMedia = CreateMedia(filelocation);
-                    generalVideoMedia.Filename = filename;
-                    generalVideoMedia.MediaId = mediaID;
-
-                    LoadInterfaceChanges(generalVideoMedia.MediaId, generalVideoMedia, filelocation);
-                }
-                else
-                {
-                    sql = "DELETE FROM medias WHERE filelocation = '" + filelocation + "'";
-                    command = new SQLiteCommand(sql, m_dbConnection);
-                    data = command.ExecuteReader();
-
-                    if (File.Exists(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length - 4) + ".png"))
-                    {
-                        File.Delete(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length - 4) + ".png");
-                    }
-                }
-            }
-            CreateGridTopParts();
-
-            MediaIDs.Clear();
-        }
-
-        private void OnSearch(object sender, RoutedEventArgs e)
-        {
-            List<GeneralVideoMedia> foundGeneralVideoMedias = GetVideosSimilarToSearchTermIntoStringArray();
-            ResetVideoDisplayUsing(foundGeneralVideoMedias);
-            
-        }
-
-        private void ResetVideoDisplayUsing(List<GeneralVideoMedia> wantedGeneralVideoMedias)
-        {
-            RemovePlayingVideoForSearch();
-            RemoveMediasFromList();
-
-            grid.ColumnDefinitions[2].MinWidth = listDetailsWidth;
-            grid.ColumnDefinitions[2].MaxWidth = listDetailsWidth;
-
-            deleteCol.MinWidth = MEDIA_HEIGHT + 4;
-            deleteCol.MaxWidth = MEDIA_HEIGHT + 4;
-
-            window.Width = 1000.10;
-            window.Height = 350;
-
-            for (int i = 0; i < GeneralVideoMedias.Count(); i++)
-            {
-                GeneralVideoMedias[i].ScrollPositionChange = 0;
-            }
-            UpdateInterfaceWithVideosSimilarToSearchTermUsing(wantedGeneralVideoMedias);
-        }
-
-        private List<GeneralVideoMedia> GetVideosSimilarToSearchTermIntoStringArray()
-        {
-            List<GeneralVideoMedia> tempGeneralVideoMedias = new List<GeneralVideoMedia>();
-            string sql = "SELECT id_media from medias WHERE title LIKE '%" + searchBox.Text.Replace("'", "''") + "%'";
-            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
-            using (var data = command.ExecuteReader())
-            {
-                while (data.Read())
-                {
-                    int mediaID = Int32.Parse(data.GetValue(0).ToString());
-                    for (int i = 0; i < GeneralVideoMedias.Count; i++)
-                    {
-                        if (GeneralVideoMedias[i].MediaId == mediaID)
-                        {
-                            tempGeneralVideoMedias.Add(GeneralVideoMedias[i]);
-                        }
-                    }
-                }
-                data.Close();
-            }
-            return tempGeneralVideoMedias;
-        }
 
         private void UpdateInterfaceWithVideosSimilarToSearchTermUsing(List<GeneralVideoMedia> foundGeneralVideoMedias)
         {
@@ -1230,99 +1232,118 @@ namespace Important
                     Grid.SetColumn(foundGeneralVideoMedias[i].FileLocation, 2);
                     Grid.SetRow(foundGeneralVideoMedias[i].FileLocation, i + 1);
 
-                    
+
                 }
             }
         }
-
-        private void RemovePlayingVideoForSearch()
+        private void ResetVideoDisplayUsing(List<GeneralVideoMedia> wantedGeneralVideoMedias)
         {
-            bool TakeOffPlayingVideo = false;
-            foreach (GeneralVideoMedia generalVideoMedia in GeneralVideoMedias)
+            RemovePlayingVideoForSearch();
+            RemoveMediasFromList();
+
+            grid.ColumnDefinitions[2].MinWidth = listDetailsWidth;
+            grid.ColumnDefinitions[2].MaxWidth = listDetailsWidth;
+
+            deleteCol.MinWidth = MEDIA_HEIGHT + 4;
+            deleteCol.MaxWidth = MEDIA_HEIGHT + 4;
+
+            window.Width = 1000.10;
+            window.Height = 350;
+
+            for (int i = 0; i < GeneralVideoMedias.Count(); i++)
             {
-                if (generalVideoMedia.videoDisplayed)
+                GeneralVideoMedias[i].ScrollPositionChange = 0;
+            }
+            UpdateInterfaceWithVideosSimilarToSearchTermUsing(wantedGeneralVideoMedias);
+        }
+        #endregion
+        #region Database-Using Methods
+        private bool FileIsAlreadyInDatabase(string filelocation)
+        {
+            int numOfSameFiles = 0;
+            string sql = "SELECT COUNT(*) from medias WHERE filelocation = '" + filelocation + "' ";
+            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
+            using (var data = command.ExecuteReader())
+            {
+                while (data.Read())
                 {
-                    TakeOffPlayingVideo = true;
+                    numOfSameFiles = Int32.Parse(data.GetValue(0).ToString());
                 }
+                data.Close();
             }
-            if (TakeOffPlayingVideo)
+            return numOfSameFiles > 0;
+        }
+        private int GetMostRecentlyInsertedMediaID()
+        {
+            int mediaID = -1;
+            string sql = "SELECT id_media FROM medias ORDER BY id_media DESC LIMIT 1";
+            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
+            var data = command.ExecuteReader();
+            mediaID = Int32.Parse(data.GetValue(0).ToString());
+            return mediaID;
+        }
+
+
+        private void GetTitleLabelContentFromDatabase(Label Title, int fileID)
+        {
+            string sql = "SELECT title FROM medias WHERE id_media = '" + (fileID) + "';";
+            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
+            using (var data = command.ExecuteReader())
             {
-                grid.RowDefinitions.Remove(grid.RowDefinitions[3]);
-                grid.RowDefinitions.Remove(grid.RowDefinitions[2]);
-                grid.RowDefinitions.Remove(grid.RowDefinitions[1]);
-                foreach (GeneralVideoMedia media in GeneralVideoMedias)
+                while (data.Read())
                 {
-                    media.play = false;
-                    media.MediaElement.VerticalAlignment = VerticalAlignment.Center;
-                    media.Title.HorizontalAlignment = HorizontalAlignment.Left;
-                    media.TitleTextBox.HorizontalAlignment = HorizontalAlignment.Left;
-                    media.Description.VerticalAlignment = VerticalAlignment.Bottom;
-                    media.DescriptionTextBox.VerticalAlignment = VerticalAlignment.Bottom;
-                    media.videoDisplayed = false;
-                    grid.Children.Remove(media.MediaElement);
+                    Title.Content = data.GetValue(0).ToString();
                 }
+                data.Close();
             }
         }
 
-        public void WriteToPng(MediaElement element, string filename)
+        private void GetDescriptionLabelContentFromDatabase(Label Description, int fileID)
         {
-            MediaPlayer media = new MediaPlayer { Volume = 0, ScrubbingEnabled = true };
-            media.Open(element.Source);
-            media.Pause();
-            media.Position = TimeSpan.FromSeconds(1);
-            //We need to give MediaPlayer some time to load. 
-            //The efficiency of the MediaPlayer depends                 
-            //upon the capabilities of the machine it is running on and 
-            //would be different from time to time
-            System.Threading.Thread.Sleep(2000);
-
-            //MEDIA_WIDTH = thumbnail width, MEDIA_HEIGHT = thumbnail height and 96x96 = horizontal x vertical DPI
-            //In a real application, you would not probably use hard coded values!
-            RenderTargetBitmap rtb = new RenderTargetBitmap(MEDIA_WIDTH, MEDIA_HEIGHT, DpiX, DpiX, PixelFormats.Pbgra32);
-            DrawingVisual dv = new DrawingVisual();
-            using (DrawingContext dc = dv.RenderOpen())
+            string sql = "SELECT description FROM medias WHERE id_media = '" + (fileID) + "';";
+            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
+            using (var data = command.ExecuteReader())
             {
-                dc.DrawVideo(media, new Rect(0, 0, MEDIA_WIDTH, MEDIA_HEIGHT));
+                while (data.Read())
+                {
+                    Description.Content = data.GetValue(0).ToString();
+                }
+                data.Close();
             }
-            rtb.Render(dv);
-            Duration duration = media.NaturalDuration;
-            int videoLength = 0;
-            if (duration.HasTimeSpan)
-            {
-                videoLength = (int)duration.TimeSpan.TotalSeconds;
-            }
-            BitmapFrame frame = BitmapFrame.Create(rtb).GetCurrentValueAsFrozen() as BitmapFrame;
-            BitmapEncoder encoder = new PngBitmapEncoder();
-            encoder.Frames.Add(frame as BitmapFrame);
-            using (var file = File.OpenWrite(System.IO.Path.GetFullPath("Media") + @"\" + filename))
-            {
-                encoder.Save(file);
-            }
-            media.Close();
         }
-
-        public void ReplaceLabelWithTextBox(Label label, TextBox textBox)
+        private List<GeneralVideoMedia> GetVideosSimilarToSearchTermIntoStringArray()
         {
-            label.Visibility = Visibility.Hidden;
-            textBox.Visibility = Visibility.Visible;
-            textBox.Focus();
+            List<GeneralVideoMedia> tempGeneralVideoMedias = new List<GeneralVideoMedia>();
+            string sql = "SELECT id_media from medias WHERE title LIKE '%" + searchBox.Text.Replace("'", "''") + "%'";
+            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
+            using (var data = command.ExecuteReader())
+            {
+                while (data.Read())
+                {
+                    int mediaID = Int32.Parse(data.GetValue(0).ToString());
+                    for (int i = 0; i < GeneralVideoMedias.Count; i++)
+                    {
+                        if (GeneralVideoMedias[i].MediaId == mediaID)
+                        {
+                            tempGeneralVideoMedias.Add(GeneralVideoMedias[i]);
+                        }
+                    }
+                }
+                data.Close();
+            }
+            return tempGeneralVideoMedias;
         }
 
-        public void ReplaceTextBoxWithLabel(TextBox textBox, Label label)
-        {
-            label.Visibility = Visibility.Visible;
-            textBox.Visibility = Visibility.Hidden;
-        }
 
         public void UpdateTitleOfSpecificMedia(int mediaId, string title)
         {
             string sqlupdate = "UPDATE medias " +
-                "SET title = '" + title.Replace("'","''") + "'" +
+                "SET title = '" + title.Replace("'", "''") + "'" +
                 " WHERE id_media = " + mediaId + " ";
             SQLiteCommand commandupdate = new SQLiteCommand(sqlupdate, m_dbConnection);
             commandupdate.ExecuteNonQuery();
         }
-        
+
         public void UpdateDescripitionOfSpecificMedia(int mediaId, string description)
         {
             string sqlupdate = "UPDATE medias " +
@@ -1363,10 +1384,13 @@ namespace Important
             }
             return description;
         }
-
-        private void TitleClicked(object sender, MouseButtonEventArgs e)
+        private void AddMediaToTable(string fileName, string imgPath, string fileLocation)
         {
-            ResetVideoDisplayUsing(GeneralVideoMedias);
+            string sql = "INSERT INTO medias(id_media, filename, img_path, title, description, filelocation) VALUES(NULL, '" + fileName + "', '" + imgPath + "', '" + fileName.Substring(0, fileName.Length - 4) + "', '" + "Default Description" + "', '" + fileLocation + "');";
+            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
+            int data = command.ExecuteNonQuery();
+
         }
+        #endregion
     }
 }
