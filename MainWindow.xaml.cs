@@ -110,9 +110,9 @@ namespace Important
                     command = new SQLiteCommand(sql, m_dbConnection);
                     data = command.ExecuteReader();
 
-                    if (File.Exists(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length - 4) + ".png"))
+                    if (File.Exists(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length) + ".png"))
                     {
-                        File.Delete(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length - 4) + ".png");
+                        File.Delete(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length) + ".png");
                     }
                 }
             }
@@ -480,10 +480,10 @@ namespace Important
         {
             System.IO.DirectoryInfo medias = new System.IO.DirectoryInfo(System.IO.Path.GetFullPath("Media"));
 
-            AddMediaToTable(fileName, fileName.Substring(0, fileName.Length - 4) + ".png", fileLocation);
+            AddMediaToTable(fileName, fileName.Substring(0, fileName.Length) + ".png", fileLocation);
 
             GeneralVideoMedia generalVideoMedia = CreateMedia(fileLocation);
-            generalVideoMedia.Filename = fileName.Substring(0, fileName.Length - 4);
+            generalVideoMedia.Filename = fileName.Substring(0, fileName.Length);
             generalVideoMedia.MediaId = GetMostRecentlyInsertedMediaID();
 
             LoadInterfaceChanges(generalVideoMedia.MediaId, generalVideoMedia, fileLocation);
@@ -516,11 +516,11 @@ namespace Important
 
         private Image CreateImage(MediaElement mediaElement, string filename)
         {
-            if (!File.Exists(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length - 4) + ".png"))
-                WriteToPng(mediaElement, filename.Substring(0, filename.Length - 4) + ".png");
+            if (!File.Exists(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length) + ".png"))
+                WriteToPng(mediaElement, filename.Substring(0, filename.Length) + ".png");
 
             //Console.WriteLine("Image Resource Exists? : " + ResourceExists(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length - 4) + ".png"));
-            BitmapImage bitmap = new BitmapImage(new Uri(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length - 4) + ".png", UriKind.Absolute));
+            BitmapImage bitmap = new BitmapImage(new Uri(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length) + ".png", UriKind.Absolute));
 
 
             Image image = new Image();
@@ -1386,7 +1386,7 @@ namespace Important
         }
         private void AddMediaToTable(string fileName, string imgPath, string fileLocation)
         {
-            string sql = "INSERT INTO medias(id_media, filename, img_path, title, description, filelocation) VALUES(NULL, '" + fileName + "', '" + imgPath + "', '" + fileName.Substring(0, fileName.Length - 4) + "', '" + "Default Description" + "', '" + fileLocation + "');";
+            string sql = "INSERT INTO medias(id_media, filename, img_path, title, description, filelocation) VALUES(NULL, '" + fileName + "', '" + imgPath + "', '" + fileName.Substring(0, fileName.Length) + "', '" + "Default Description" + "', '" + fileLocation + "');";
             SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
             int data = command.ExecuteNonQuery();
 
