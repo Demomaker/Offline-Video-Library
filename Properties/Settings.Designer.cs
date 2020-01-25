@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Important.Properties
+namespace DVL.Properties
 {
 
 

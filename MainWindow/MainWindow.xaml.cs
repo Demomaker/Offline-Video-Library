@@ -23,7 +23,7 @@ using System.IO;
 using System.Reflection;
 using System.Resources;
 
-namespace Important
+namespace DVL
 {
     /// <summary>
     /// Interaction Logic for MainWindow.xaml
@@ -38,6 +38,7 @@ namespace Important
         private const int FIRST_ROW_HEIGHT = 20 + 12;
         private const int FIRST_COLUMN_WIDTH = MEDIA_WIDTH + 12;
         private const int DpiX = 96;
+        private const string APP_NAME = "Demomaker's Video Library";
         private DispatcherTimer time = new DispatcherTimer();
         private int fontSize = 20;
         private static SolidColorBrush brush = new SolidColorBrush();
@@ -65,10 +66,12 @@ namespace Important
         private void InitializeApplication()
         {
             CreateTable();
-            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Assembly.GetEntryAssembly().Location) + "\\Media");
-            title = System.IO.Path.GetFileName(Assembly.GetEntryAssembly().Location).Substring(0, System.IO.Path.GetFileName(Assembly.GetEntryAssembly().Location).Length - 4);
+            Utils.APP_LOCATION = System.IO.Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
+            Utils.FILE_STORING_LOCATION = Utils.APP_LOCATION + Utils.FILE_STORING_LOCATION_FOLDER_NAME;
+            System.IO.Directory.CreateDirectory(Utils.FILE_STORING_LOCATION);
+            title = Utils.APP_LOCATION.Substring(0, Utils.APP_LOCATION.Length - 4);
             (Title as Label).Content = title;
-            title = "Demomaker's Video Library - " + title;
+            title = APP_NAME + " " + title;
             window.SetValue(TitleProperty, title);
             CreateNonMedias();
             deleteCol.MinWidth = MEDIA_HEIGHT + 4;

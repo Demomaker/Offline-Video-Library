@@ -1,9 +1,9 @@
-﻿<Window x:Class="Important.MainWindow"
+﻿<Window x:Class="DVL.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:Important"
+        xmlns:local="clr-namespace:DVL"
         mc:Ignorable="d"
         MouseWheel="OnScroll"
         Title="Video Library" Height="350" Width="1000.137" x:Name="window">
@@ -30,7 +30,7 @@
        
         <TextBox x:Name="searchBox" HorizontalAlignment="Center" Height="34" Margin="0" TextWrapping="Wrap" VerticalAlignment="Center" Width="226" FontWeight="Bold" FontSize="16" BorderBrush="#FF5B4E4E" Background="#FFB4A0A0" VerticalContentAlignment="Center" />
         <TextBlock x:Name="searchBoxHint" Margin="5,2" MinWidth="50" Text="Search..." 
-                   Foreground="Black" FontWeight="Bold" FontSize="16" Visibility="{Binding ElementName=searchBox, Path=Text.IsEmpty, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                   Foreground="Black" FontWeight="Bold" FontSize="16" Visibility="{Binding ElementName=searchBox, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
         <Button Content="Search" x:Name="searchButton"  HorizontalAlignment="Left" Margin="493,0,0,0" VerticalAlignment="Top" Width="80" Height="34" Click="OnSearch" />
         

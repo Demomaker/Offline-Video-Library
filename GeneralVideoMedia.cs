@@ -7,7 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 
-namespace Important
+namespace DVL
 {
     class GeneralVideoMedia
     {
