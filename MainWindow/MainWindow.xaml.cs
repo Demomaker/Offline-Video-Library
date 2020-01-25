@@ -31,6 +31,7 @@ namespace DVL
     public partial class MainWindow : Window
     {
         private List<GeneralVideoMedia> GeneralVideoMedias = new List<GeneralVideoMedia>();
+        private GeneralVideoMediaRepository generalVideoMediaRepository;
         private System.IO.FileInfo[] files = new System.IO.FileInfo[4];
         private const int MEDIA_WIDTH = 256;
         private const int MEDIA_HEIGHT = 144;
@@ -38,14 +39,13 @@ namespace DVL
         private const int FIRST_ROW_HEIGHT = 20 + 12;
         private const int FIRST_COLUMN_WIDTH = MEDIA_WIDTH + 12;
         private const int DpiX = 96;
-        private const string APP_NAME = "Demomaker's Video Library";
+        private const string APP_NAME = "DVL";
         private DispatcherTimer time = new DispatcherTimer();
         private int fontSize = 20;
         private static SolidColorBrush brush = new SolidColorBrush();
         private SQLiteConnection m_dbConnection = new SQLiteConnection("Data Source=Medias.sqlite;Version=3;");
         private double listDetailsWidth = 0;
         private bool videoInFullScreen = false;
-        string title = "Video Library";
 
         /// <summary>
         /// Constructor
@@ -65,73 +65,38 @@ namespace DVL
 
         private void InitializeApplication()
         {
-            CreateTable();
+            generalVideoMediaRepository = new GeneralVideoMediaRepository();
+            generalVideoMediaRepository.CreateTable();
             Utils.APP_LOCATION = System.IO.Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
             Utils.FILE_STORING_LOCATION = Utils.APP_LOCATION + Utils.FILE_STORING_LOCATION_FOLDER_NAME;
             System.IO.Directory.CreateDirectory(Utils.FILE_STORING_LOCATION);
-            title = Utils.APP_LOCATION.Substring(0, Utils.APP_LOCATION.Length - 4);
-            (Title as Label).Content = title;
-            title = APP_NAME + " " + title;
-            window.SetValue(TitleProperty, title);
+            (Title as Label).Content = APP_NAME;
+            window.SetValue(TitleProperty, APP_NAME);
             CreateNonMedias();
             deleteCol.MinWidth = MEDIA_HEIGHT + 4;
             deleteCol.MaxWidth = MEDIA_HEIGHT + 4;
-            List<int> MediaIDs = new List<int>();
-            string sql = "SELECT id_media from medias";
-            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
-            using (var data = command.ExecuteReader())
+            List<GeneralVideoMediaDTO> generalVideoMediaDTOs = generalVideoMediaRepository.GetAll();
+            foreach (GeneralVideoMediaDTO generalVideoMediaDTO in generalVideoMediaDTOs)
             {
-                while (data.Read())
+                if (File.Exists(generalVideoMediaDTO.FileLocation))
                 {
-                    MediaIDs.Add(Int32.Parse(data.GetValue(0).ToString()));
-                }
-                data.Close();
-            }
-            foreach (int mediaID in MediaIDs)
-            {
-                sql = "SELECT filelocation from medias WHERE id_media = '" + mediaID + "'";
-                command = new SQLiteCommand(sql, m_dbConnection);
-                var data = command.ExecuteReader();
-                string filelocation = data.GetValue(0).ToString();
+                    GeneralVideoMedia generalVideoMedia = CreateMedia(generalVideoMediaDTO.FileLocation);
+                    generalVideoMedia.Filename = generalVideoMediaDTO.FileName;
+                    generalVideoMedia.MediaId = generalVideoMediaDTO.MediaId;
 
-                sql = "SELECT filename from medias WHERE id_media = '" + mediaID + "'";
-                command = new SQLiteCommand(sql, m_dbConnection);
-                data = command.ExecuteReader();
-                string filename = data.GetValue(0).ToString();
-
-                if (File.Exists(filelocation))
-                {
-                    GeneralVideoMedia generalVideoMedia = CreateMedia(filelocation);
-                    generalVideoMedia.Filename = filename;
-                    generalVideoMedia.MediaId = mediaID;
-
-                    LoadInterfaceChanges(generalVideoMedia.MediaId, generalVideoMedia, filelocation);
+                    LoadInterfaceChanges(generalVideoMedia.MediaId, generalVideoMedia, generalVideoMediaDTO.FileLocation);
                 }
                 else
                 {
-                    sql = "DELETE FROM medias WHERE filelocation = '" + filelocation + "'";
-                    command = new SQLiteCommand(sql, m_dbConnection);
-                    data = command.ExecuteReader();
-
-                    if (File.Exists(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length) + ".png"))
+                    if (File.Exists(System.IO.Path.GetFullPath("Media") + "/" + generalVideoMediaDTO.FileName.Substring(0, generalVideoMediaDTO.FileName.Length) + ".png"))
                     {
-                        File.Delete(System.IO.Path.GetFullPath("Media") + "/" + filename.Substring(0, filename.Length) + ".png");
+                        File.Delete(System.IO.Path.GetFullPath("Media") + "/" + generalVideoMediaDTO.FileName.Substring(0, generalVideoMediaDTO.FileName.Length) + ".png");
                     }
+                    generalVideoMediaRepository.Remove(generalVideoMediaDTO);
                 }
             }
             CreateGridTopParts();
-
-            MediaIDs.Clear();
         }
-
-        private void CreateTable()
-        {
-            m_dbConnection.Open();
-            string sqlcreate = "create table if not exists medias (id_media INTEGER PRIMARY KEY, filename varchar(5000), img_path varchar(5000), title varchar(5000), description varchar(5000), filelocation varchar(5000));";
-            SQLiteCommand commandcreate = new SQLiteCommand(sqlcreate, m_dbConnection);
-            commandcreate.ExecuteNonQuery();
-        }
-
 
         /// <summary>
         /// Window Running Instance
@@ -431,7 +396,7 @@ namespace DVL
                         else if (GeneralVideoMedias[count].DescriptionTextBox == sender as TextBox)
                         {
                             ReplaceTextBoxWithLabel(GeneralVideoMedias[count].DescriptionTextBox, GeneralVideoMedias[count].Description);
-                            UpdateDescripitionOfSpecificMedia(GeneralVideoMedias[count].MediaId, (sender as TextBox).Text);
+                            UpdateDescriptionOfSpecificMedia(GeneralVideoMedias[count].MediaId, (sender as TextBox).Text);
                             GeneralVideoMedias[count].Description.Content = GetDescriptionOfMedia(GeneralVideoMedias[count].MediaId);
                         }
                         else if (GeneralVideoMedias[count].VideoWidthTextBox == sender as TextBox)
@@ -570,7 +535,7 @@ namespace DVL
         private Label CreateTitleLabel(string filename, int mediaID)
         {
             Label title = new Label();
-            GetTitleLabelContentFromDatabase(title, mediaID);
+            DetermineTitleLabelContentFromDatabase(title, mediaID);
             title.FontSize = fontSize;
             title.FontWeight = FontWeights.Bold;
             title.Margin = new Thickness(12, fontSize * 1.5, 0, 0);
@@ -615,7 +580,7 @@ namespace DVL
         private Label CreateDescriptionLabel(string filename, int mediaID)
         {
             Label description = new Label();
-            GetDescriptionLabelContentFromDatabase(description, mediaID);
+            DetermineDescriptionLabelContentFromDatabase(description, mediaID);
 
             if (description.Content == null || description.Content.ToString() == "")
                 description.Content = "Default Description";
@@ -636,7 +601,7 @@ namespace DVL
         {
             TextBox titleTextBox = new TextBox();
             Label title = new Label();
-            GetTitleLabelContentFromDatabase(title, mediaID);
+            DetermineTitleLabelContentFromDatabase(title, mediaID);
             GetTextBoxTextFromLabelContent(titleTextBox, title);
             titleTextBox.FontSize = fontSize;
             titleTextBox.FontWeight = FontWeights.Bold;
@@ -692,7 +657,7 @@ namespace DVL
             TextBox descriptionTextBox = new TextBox();
 
             Label description = new Label();
-            GetDescriptionLabelContentFromDatabase(description, mediaID);
+            DetermineDescriptionLabelContentFromDatabase(description, mediaID);
             GetTextBoxTextFromLabelContent(descriptionTextBox, description);
             descriptionTextBox.FontSize = fontSize;
             descriptionTextBox.FontWeight = FontWeights.Bold;
@@ -777,12 +742,7 @@ namespace DVL
                     }
                 }
 
-
-
-
-                string sql = "DELETE FROM medias WHERE filelocation = '" + generalVideoMedia.GetFileLocation() + "'";
-                SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
-                var data = command.ExecuteReader();
+                generalVideoMediaRepository.Remove(generalVideoMediaRepository.GetAll().Where(o => o.FileLocation == generalVideoMedia.GetFileLocation()).FirstOrDefault());
                 GeneralVideoMedias.Remove(generalVideoMedia);
                 //OnSearch(this, null);
 
@@ -1260,140 +1220,64 @@ namespace DVL
             UpdateInterfaceWithVideosSimilarToSearchTermUsing(wantedGeneralVideoMedias);
         }
         #endregion
-        #region Database-Using Methods
+
+
+        //Database-Using Methods
         private bool FileIsAlreadyInDatabase(string filelocation)
         {
-            int numOfSameFiles = 0;
-            string sql = "SELECT COUNT(*) from medias WHERE filelocation = '" + filelocation + "' ";
-            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
-            using (var data = command.ExecuteReader())
-            {
-                while (data.Read())
-                {
-                    numOfSameFiles = Int32.Parse(data.GetValue(0).ToString());
-                }
-                data.Close();
-            }
-            return numOfSameFiles > 0;
+            return generalVideoMediaRepository.GetAllWithCondition(o => o.FileLocation == filelocation).Count > 0;
         }
+
         private int GetMostRecentlyInsertedMediaID()
         {
-            int mediaID = -1;
-            string sql = "SELECT id_media FROM medias ORDER BY id_media DESC LIMIT 1";
-            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
-            var data = command.ExecuteReader();
-            mediaID = Int32.Parse(data.GetValue(0).ToString());
-            return mediaID;
+            return generalVideoMediaRepository.GetAll().OrderByDescending(i => i.MediaId).FirstOrDefault().MediaId;
         }
 
 
-        private void GetTitleLabelContentFromDatabase(Label Title, int fileID)
+        private void DetermineTitleLabelContentFromDatabase(Label Title, int fileID)
         {
-            string sql = "SELECT title FROM medias WHERE id_media = '" + (fileID) + "';";
-            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
-            using (var data = command.ExecuteReader())
-            {
-                while (data.Read())
-                {
-                    Title.Content = data.GetValue(0).ToString();
-                }
-                data.Close();
-            }
+            Title.Content = generalVideoMediaRepository.GetWithId(fileID).Title;
         }
 
-        private void GetDescriptionLabelContentFromDatabase(Label Description, int fileID)
+        private void DetermineDescriptionLabelContentFromDatabase(Label Description, int fileID)
         {
-            string sql = "SELECT description FROM medias WHERE id_media = '" + (fileID) + "';";
-            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
-            using (var data = command.ExecuteReader())
-            {
-                while (data.Read())
-                {
-                    Description.Content = data.GetValue(0).ToString();
-                }
-                data.Close();
-            }
+            Description.Content = generalVideoMediaRepository.GetWithId(fileID).Description;
         }
+
         private List<GeneralVideoMedia> GetVideosSimilarToSearchTermIntoStringArray()
         {
-            List<GeneralVideoMedia> tempGeneralVideoMedias = new List<GeneralVideoMedia>();
-            string sql = "SELECT id_media from medias WHERE title LIKE '%" + searchBox.Text.Replace("'", "''") + "%'";
-            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
-            using (var data = command.ExecuteReader())
-            {
-                while (data.Read())
-                {
-                    int mediaID = Int32.Parse(data.GetValue(0).ToString());
-                    for (int i = 0; i < GeneralVideoMedias.Count; i++)
-                    {
-                        if (GeneralVideoMedias[i].MediaId == mediaID)
-                        {
-                            tempGeneralVideoMedias.Add(GeneralVideoMedias[i]);
-                        }
-                    }
-                }
-                data.Close();
-            }
-            return tempGeneralVideoMedias;
+            return GeneralVideoMedias.Where(o1 => o1.MediaId == generalVideoMediaRepository.GetAllWithCondition(o2 => o2.Title.Contains(searchBox.Text)).FirstOrDefault().MediaId).ToList();
         }
 
 
         public void UpdateTitleOfSpecificMedia(int mediaId, string title)
         {
-            string sqlupdate = "UPDATE medias " +
-                "SET title = '" + title.Replace("'", "''") + "'" +
-                " WHERE id_media = " + mediaId + " ";
-            SQLiteCommand commandupdate = new SQLiteCommand(sqlupdate, m_dbConnection);
-            commandupdate.ExecuteNonQuery();
+            var generalVideoMediaDTO = generalVideoMediaRepository.GetWithId(mediaId);
+            generalVideoMediaDTO.SetNewTitle(title);
+            generalVideoMediaRepository.Update(generalVideoMediaDTO);
         }
 
-        public void UpdateDescripitionOfSpecificMedia(int mediaId, string description)
+        public void UpdateDescriptionOfSpecificMedia(int mediaId, string description)
         {
-            string sqlupdate = "UPDATE medias " +
-                "SET description = '" + description.Replace("'", "''") + "'" +
-                " WHERE id_media = " + mediaId + " ";
-            SQLiteCommand commandupdate = new SQLiteCommand(sqlupdate, m_dbConnection);
-            commandupdate.ExecuteNonQuery();
+            var generalVideoMediaDTO = generalVideoMediaRepository.GetWithId(mediaId);
+            generalVideoMediaDTO.SetNewDescription(description);
+            generalVideoMediaRepository.Update(generalVideoMediaDTO);
         }
 
         public string GetTitleOfMedia(int mediaId)
         {
-            string title = "";
-            string sql = "SELECT title from medias WHERE id_media = " + mediaId + " ";
-            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
-            using (var data = command.ExecuteReader())
-            {
-                while (data.Read())
-                {
-                    title = data.GetValue(0).ToString();
-                }
-                data.Close();
-            }
-            return title;
+            return generalVideoMediaRepository.GetWithId(mediaId).Title;
         }
 
         public string GetDescriptionOfMedia(int mediaId)
         {
-            string description = "";
-            string sql = "SELECT description from medias WHERE id_media = " + mediaId + " ";
-            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
-            using (var data = command.ExecuteReader())
-            {
-                while (data.Read())
-                {
-                    description = data.GetValue(0).ToString();
-                }
-                data.Close();
-            }
-            return description;
+
+            return generalVideoMediaRepository.GetWithId(mediaId).Description;
         }
+
         private void AddMediaToTable(string fileName, string imgPath, string fileLocation)
         {
-            string sql = "INSERT INTO medias(id_media, filename, img_path, title, description, filelocation) VALUES(NULL, '" + fileName + "', '" + imgPath + "', '" + fileName.Substring(0, fileName.Length) + "', '" + "Default Description" + "', '" + fileLocation + "');";
-            SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
-            int data = command.ExecuteNonQuery();
-
+            generalVideoMediaRepository.Add(new GeneralVideoMediaDTO(0, fileName, "", fileName, fileLocation, imgPath));
         }
-        #endregion
     }
 }
