@@ -34,6 +34,9 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>Resources\icon.ico</ApplicationIcon>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Data" />
@@ -59,7 +62,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <Compile Include="GeneralVideoMedia.cs" />
+    <Compile Include="Utils\GeneralVideoMedia.cs" />
     <Compile Include="Repository\GeneralVideoMediaDTO.cs" />
     <Compile Include="Repository\GeneralVideoMediaRepository.cs" />
     <Compile Include="Repository\Repository.cs" />
@@ -103,8 +106,12 @@
     <None Include="Application\App.config" />
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="Resources\foo.png" />
-    <Resource Include="Resources\icon.ico" />
+    <Resource Include="Resources\foo.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Resources\icon.ico">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Media\" />

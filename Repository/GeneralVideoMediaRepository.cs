@@ -1,11 +1,14 @@
-﻿using System;
+﻿/* GeneralVideoMediaRepository.cs : Repository for GeneralVideoMedias
+ * Author : Demomaker
+ * Version : 1.0
+ */
+
+using System;
 using System.Collections.Generic;
 using System.Data.SQLite;
 using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace DVL
 {

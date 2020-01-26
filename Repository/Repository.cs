@@ -1,9 +1,10 @@
-﻿using System;
+﻿/* Repository.cs : Representation of a repository for this project
+ * Author : Demomaker
+ * Version : 1.0
+ */
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace DVL
 {

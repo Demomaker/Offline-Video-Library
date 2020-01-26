@@ -1,8 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿/* GeneralVideoMediaDTO.cs : DTO Representation of a GeneralVideoMedia
+ * Author : Demomaker
+ * Version : 1.0
+ */
 
 namespace DVL
 {
@@ -22,9 +21,9 @@ namespace DVL
         }
 
         public GeneralVideoMediaDTO(
-            int mediaId = 0, 
-            string title = "", 
-            string description = "", 
+            int mediaId = 0,
+            string title = "",
+            string description = "",
             string fileName = "",
             string fileLocation = "",
             string imgPath = ""
@@ -95,7 +94,7 @@ namespace DVL
             {
                 return fileLocation;
             }
-            
+
             private set
             {
                 fileLocation = value;

@@ -1,4 +1,9 @@
-﻿using System;
+﻿/* GeneralVideoMedia.cs : Representation of a Media and Everything that can be modified within it, including the video footage
+ * Author : Demomaker
+ * Version : 1.0
+ */
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -34,12 +39,11 @@ namespace DVL
         {
             DeleteButton = new Button();
             Image img = new Image();
-            img.Source = new BitmapImage(new Uri(@"foo.png", UriKind.Relative));
+            img.Source = new BitmapImage(new Uri(Utils.DELETE_BUTTON_IMAGE_LOCATION, UriKind.Relative));
 
             img.Margin = new Thickness(-8,0,0,0);
             StackPanel stackPnl = new StackPanel();
             stackPnl.Orientation = Orientation.Horizontal;
-            //stackPnl.Margin = new Thickness(10);
             stackPnl.Children.Add(img);
             stackPnl.HorizontalAlignment = HorizontalAlignment.Left;
             stackPnl.VerticalAlignment = VerticalAlignment.Center;
