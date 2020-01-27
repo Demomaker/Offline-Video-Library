@@ -10,3 +10,5 @@ Here are the main features of this program :
 - Search for videos by their filename or their title.
 - Delete videos from the library that you didn't want to keep in it.
 - Do this all by being offline. 
+
+[See releases](https://github.com/Demomaker/Offline-Video-Library/releases)
