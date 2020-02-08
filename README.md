@@ -9,7 +9,7 @@ Here are the main features of this program :
 - Add a custom title and a custom description to a video to better identify it.
 - Search for videos by their filename or their title.
 - Delete videos from the library that you didn't want to keep in it.
-- Do this all by being offline. 
+- Do this all while being offline. 
 
 ![DVL](https://user-images.githubusercontent.com/18319764/73548421-c1361780-440e-11ea-9ec0-634d6c528dec.PNG)
 [See releases](https://github.com/Demomaker/Offline-Video-Library/releases)
