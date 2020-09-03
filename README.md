@@ -15,3 +15,4 @@ Here are the main features of this program :
 
 ![DVL](https://user-images.githubusercontent.com/18319764/73548421-c1361780-440e-11ea-9ec0-634d6c528dec.PNG)
 [See releases](https://github.com/Demomaker/Offline-Video-Library/releases)
+[Download](https://github.com/Demomaker/Offline-Video-Library/releases/download/v1.0.2.1/VideoLibraryV1_0_2_1.zip)
