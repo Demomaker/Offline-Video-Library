@@ -1,5 +1,5 @@
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
+![GitHub license](https://img.shields.io/github/license/Demomaker/Offline-Video-Library?style=plastic)
+![GitHub all releases](https://img.shields.io/github/downloads/Demomaker/Offline-Video-Library/total?style=plastic)
 # Offline-Video-Library
 
 ## EN
